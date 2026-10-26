@@ -19,8 +19,8 @@ services:
       retries: 20
 
   api:
-    build:
-      context: ../server
+    image: rsl-prod-api:latest
+    pull_policy: never
     restart: unless-stopped
     environment:
       NODE_ENV: production
