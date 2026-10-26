@@ -3,165 +3,256 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SL & MJ</title>
+  <title>SL &amp; MJ</title>
   <style>
     :root {
-      --ink: #241917;
-      --muted: #76635d;
-      --paper: #f7f1ea;
-      --line: #e4d6c8;
-      --wine: #3a1f1d;
-      --wine-2: #552b27;
-      --blush: #f2ddd4;
-      --chili: #b34233;
+      --pink: #ff2f93;
+      --pink-2: #ff7ab8;
+      --blush: #ffd0e6;
+      --ink: #070707;
+      --card: #111111;
+      --line: rgba(255, 47, 147, 0.45);
     }
 
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; }
     body {
-      color: var(--ink);
+      color: #fff;
       background:
-        radial-gradient(880px 420px at 88% -8%, #f4dfd6 0%, transparent 62%),
-        radial-gradient(720px 380px at 6% 18%, #efe2d2 0%, transparent 58%),
-        linear-gradient(180deg, #faf5ef 0%, var(--paper) 52%, #efe5d8 100%);
+        radial-gradient(520px 280px at 92% 0%, rgba(255, 47, 147, 0.35), transparent 70%),
+        linear-gradient(160deg, #050505 0%, #12040c 48%, #050505 100%);
       font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
     }
 
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: linear-gradient(180deg, #000 0%, transparent 78%);
+    }
+
     .wrap {
-      max-width: 960px;
+      position: relative;
+      max-width: 1040px;
       margin: 0 auto;
-      padding: 32px 28px 72px;
+      padding: 28px 24px 72px;
     }
 
     header {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
+      align-items: center;
       gap: 16px;
-      padding-bottom: 20px;
+      padding-bottom: 18px;
       border-bottom: 1px solid var(--line);
-      font-size: 13px;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.18em;
+      font-size: 12px;
     }
-    .names { font-weight: 600; }
-    .names span {
-      color: var(--chili);
-      margin: 0 6px;
+    .mark {
+      font-weight: 750;
+      font-size: 18px;
+      letter-spacing: 0.22em;
     }
-    .quiet { color: var(--muted); }
+    .mark b { color: var(--pink); font-weight: 750; }
+    .quiet { color: var(--blush); }
 
     .hero {
-      padding: 68px 0 44px;
-      max-width: 680px;
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 36px;
+      align-items: end;
+      padding: 54px 0 28px;
     }
     .eyebrow {
-      margin: 0 0 16px;
-      color: var(--chili);
+      margin: 0 0 14px;
+      color: var(--pink);
+      letter-spacing: 0.34em;
       font-size: 12px;
-      letter-spacing: 0.28em;
     }
     h1 {
-      margin: 0 0 18px;
-      font-family: "Songti SC", "STSong", "Noto Serif SC", "Iowan Old Style", serif;
-      font-size: clamp(40px, 5.6vw, 68px);
-      font-weight: 560;
-      line-height: 1.08;
-      letter-spacing: -0.02em;
-    }
-    .lead {
       margin: 0;
-      color: var(--muted);
+      font-family: "Arial Black", "PingFang SC", sans-serif;
+      font-size: clamp(46px, 7vw, 84px);
+      line-height: 0.92;
+      letter-spacing: -0.04em;
+      text-transform: uppercase;
+    }
+    h1 span { color: var(--pink); }
+    .lead {
+      margin: 18px 0 0;
+      max-width: 460px;
+      color: #f3d5e4;
       font-size: 16px;
       line-height: 1.8;
     }
 
-    .list {
+    .stamp {
+      justify-self: end;
+      width: 210px;
+      aspect-ratio: 1;
+      border: 1px solid var(--pink);
+      border-radius: 28px;
       display: grid;
-      gap: 16px;
+      place-items: center;
+      background:
+        linear-gradient(160deg, rgba(255, 47, 147, 0.18), transparent 42%),
+        #0c0c0c;
+      box-shadow: 12px 12px 0 #ff2f93;
+      transform: rotate(6deg);
     }
+    .stamp strong {
+      font-family: "Arial Black", sans-serif;
+      font-size: 54px;
+      letter-spacing: -0.06em;
+      line-height: 0.8;
+    }
+    .stamp em {
+      display: block;
+      margin-top: 8px;
+      font-style: normal;
+      letter-spacing: 0.28em;
+      font-size: 12px;
+      color: var(--pink-2);
+    }
+
+    .members {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 10px 0 34px;
+    }
+    .member {
+      padding: 16px 14px 14px;
+      background: var(--card);
+      border-top: 3px solid var(--pink);
+    }
+    .member small {
+      display: block;
+      color: var(--pink-2);
+      letter-spacing: 0.16em;
+      font-size: 11px;
+    }
+    .member b {
+      display: block;
+      margin: 8px 0 4px;
+      font-size: 20px;
+      letter-spacing: 0.04em;
+    }
+    .member span { color: #c9b7c0; font-size: 13px; }
+
+    .list { display: grid; gap: 14px; }
     .card {
       display: grid;
       grid-template-columns: auto 1fr auto;
-      gap: 24px;
+      gap: 22px;
       align-items: center;
-      padding: 26px 28px;
-      border-radius: 20px;
+      padding: 22px 22px;
       text-decoration: none;
       color: inherit;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      background: #0e0e0e;
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
     .live {
-      background: linear-gradient(135deg, var(--wine) 0%, var(--wine-2) 100%);
-      color: #fbf6f3;
-      box-shadow: 0 20px 44px rgba(58, 31, 29, 0.18);
+      background: linear-gradient(100deg, #ff2f93 0%, #ff5aa8 55%, #ffd0e6 140%);
+      color: #14040b;
+      border: 0;
     }
-    .live:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 24px 52px rgba(58, 31, 29, 0.24);
-    }
-    .soon {
-      background: rgba(255, 252, 248, 0.55);
-      border: 1px solid var(--line);
-      color: var(--muted);
-    }
+    .live:hover { transform: translate(-4px, -4px); box-shadow: 8px 8px 0 #fff; }
+    .soon { color: #d9c6cf; }
     .index {
-      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-      font-size: 30px;
-      opacity: 0.7;
+      font-family: "Arial Black", sans-serif;
+      font-size: 28px;
     }
-    h2 {
-      margin: 0 0 6px;
-      font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
-      font-size: 23px;
-      font-weight: 600;
-    }
-    .card p {
-      margin: 0;
-      line-height: 1.65;
-      font-size: 14px;
-    }
-    .live p { color: var(--blush); }
+    h2 { margin: 0 0 6px; font-size: 24px; }
+    .card p { margin: 0; line-height: 1.6; font-size: 14px; }
     .go {
-      min-width: 72px;
-      text-align: right;
-      letter-spacing: 0.16em;
+      letter-spacing: 0.14em;
       font-size: 13px;
+      font-weight: 700;
     }
-    .live .go {
-      padding: 8px 14px;
+
+    .tracks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 28px;
+    }
+    .tracks span {
+      padding: 7px 12px;
+      border: 1px solid var(--line);
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.12);
-      text-align: center;
+      color: var(--blush);
+      font-size: 12px;
+      letter-spacing: 0.08em;
     }
 
     footer {
-      margin-top: 44px;
+      margin-top: 36px;
       display: flex;
       justify-content: space-between;
-      color: var(--muted);
+      gap: 12px;
+      color: #b9a3ad;
+      letter-spacing: 0.16em;
       font-size: 12px;
-      letter-spacing: 0.12em;
     }
 
     @media (max-width: 760px) {
-      .wrap { padding: 22px 18px 52px; }
-      .hero { padding: 40px 0 28px; }
-      .card { grid-template-columns: auto 1fr; padding: 22px 20px; }
-      .go { grid-column: 2; justify-self: start; text-align: left; }
+      .hero, .members { grid-template-columns: 1fr 1fr; }
+      .stamp { display: none; }
+      .hero { padding-top: 36px; }
+      .card { grid-template-columns: auto 1fr; }
+      .go { grid-column: 2; }
+      footer { flex-direction: column; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <div class="names">SL<span>·</span>MJ</div>
-      <div class="quiet">我们的地方</div>
+      <div class="mark">SL <b>×</b> MJ</div>
+      <div class="quiet">BLACKPINK IN YOUR AREA</div>
     </header>
 
     <section class="hero">
-      <p class="eyebrow">FOR MJ</p>
-      <h1>把日常收好，<br />慢慢往下写。</h1>
-      <p class="lead">照片、碎碎念、走过的时间轴，还有以后一起添上的每一页，都放在这里。</p>
+      <div>
+        <p class="eyebrow">FOR MJ</p>
+        <h1>Pretty<br />savage,<br /><span>our place.</span></h1>
+        <p class="lead">黑与粉的这一页，留给我们。照片、碎碎念、走过的时间，还有以后一起添上的每一页，都从这里进去。</p>
+      </div>
+      <div class="stamp">
+        <div>
+          <strong>BP</strong>
+          <em>BLINK</em>
+        </div>
+      </div>
+    </section>
+
+    <section class="members">
+      <article class="member">
+        <small>01</small>
+        <b>Jisoo</b>
+        <span>花与从容</span>
+      </article>
+      <article class="member">
+        <small>02</small>
+        <b>Jennie</b>
+        <span>锋利和甜</span>
+      </article>
+      <article class="member">
+        <small>03</small>
+        <b>Rosé</b>
+        <span>声音很轻</span>
+      </article>
+      <article class="member">
+        <small>04</small>
+        <b>Lisa</b>
+        <span>舞台最亮</span>
+      </article>
     </section>
 
     <section class="list">
@@ -169,24 +260,33 @@
         <div class="index">01</div>
         <div>
           <h2>澍龙的小屋</h2>
-          <p>博客、相册、时间轴、树洞与朋友圈。</p>
+          <p>博客、相册、时间轴、树洞与朋友圈。现在就能推门进去。</p>
         </div>
-        <div class="go">推门进去</div>
+        <div class="go">HOW YOU LIKE THAT</div>
       </a>
-
       <article class="card soon">
         <div class="index">02</div>
         <div>
           <h2>下一个故事</h2>
-          <p>留给后面一起去的地方和新的纪念。</p>
+          <p>留给后面一起去的地方。新的纪念，慢慢写成下一张专辑。</p>
         </div>
-        <div class="go">慢慢写</div>
+        <div class="go">BORN PINK</div>
       </article>
     </section>
 
+    <div class="tracks">
+      <span>DDU-DU DDU-DU</span>
+      <span>Kill This Love</span>
+      <span>How You Like That</span>
+      <span>Pink Venom</span>
+      <span>Shut Down</span>
+      <span>Lovesick Girls</span>
+      <span>As If It's Your Last</span>
+    </div>
+
     <footer>
       <span>龙哥 &amp; 小米椒</span>
-      <span>ALWAYS</span>
+      <span>FOREVER BLINK</span>
     </footer>
   </div>
 </body>
