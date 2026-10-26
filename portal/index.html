@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SL & MJ</title>
+  <style>
+    :root {
+      --ink: #241917;
+      --muted: #76635d;
+      --paper: #f7f1ea;
+      --line: #e4d6c8;
+      --wine: #3a1f1d;
+      --wine-2: #552b27;
+      --blush: #f2ddd4;
+      --chili: #b34233;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      color: var(--ink);
+      background:
+        radial-gradient(880px 420px at 88% -8%, #f4dfd6 0%, transparent 62%),
+        radial-gradient(720px 380px at 6% 18%, #efe2d2 0%, transparent 58%),
+        linear-gradient(180deg, #faf5ef 0%, var(--paper) 52%, #efe5d8 100%);
+      font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    }
+
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 28px 72px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      letter-spacing: 0.12em;
+    }
+    .names { font-weight: 600; }
+    .names span {
+      color: var(--chili);
+      margin: 0 6px;
+    }
+    .quiet { color: var(--muted); }
+
+    .hero {
+      padding: 68px 0 44px;
+      max-width: 680px;
+    }
+    .eyebrow {
+      margin: 0 0 16px;
+      color: var(--chili);
+      font-size: 12px;
+      letter-spacing: 0.28em;
+    }
+    h1 {
+      margin: 0 0 18px;
+      font-family: "Songti SC", "STSong", "Noto Serif SC", "Iowan Old Style", serif;
+      font-size: clamp(40px, 5.6vw, 68px);
+      font-weight: 560;
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+    }
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.8;
+    }
+
+    .list {
+      display: grid;
+      gap: 16px;
+    }
+    .card {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 24px;
+      align-items: center;
+      padding: 26px 28px;
+      border-radius: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .live {
+      background: linear-gradient(135deg, var(--wine) 0%, var(--wine-2) 100%);
+      color: #fbf6f3;
+      box-shadow: 0 20px 44px rgba(58, 31, 29, 0.18);
+    }
+    .live:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 24px 52px rgba(58, 31, 29, 0.24);
+    }
+    .soon {
+      background: rgba(255, 252, 248, 0.55);
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .index {
+      font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+      font-size: 30px;
+      opacity: 0.7;
+    }
+    h2 {
+      margin: 0 0 6px;
+      font-family: "Songti SC", "STSong", "Noto Serif SC", serif;
+      font-size: 23px;
+      font-weight: 600;
+    }
+    .card p {
+      margin: 0;
+      line-height: 1.65;
+      font-size: 14px;
+    }
+    .live p { color: var(--blush); }
+    .go {
+      min-width: 72px;
+      text-align: right;
+      letter-spacing: 0.16em;
+      font-size: 13px;
+    }
+    .live .go {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      text-align: center;
+    }
+
+    footer {
+      margin-top: 44px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 22px 18px 52px; }
+      .hero { padding: 40px 0 28px; }
+      .card { grid-template-columns: auto 1fr; padding: 22px 20px; }
+      .go { grid-column: 2; justify-self: start; text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="names">SL<span>·</span>MJ</div>
+      <div class="quiet">我们的地方</div>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">FOR MJ</p>
+      <h1>把日常收好，<br />慢慢往下写。</h1>
+      <p class="lead">照片、碎碎念、走过的时间轴，还有以后一起添上的每一页，都放在这里。</p>
+    </section>
+
+    <section class="list">
+      <a class="card live" href="/rsl/">
+        <div class="index">01</div>
+        <div>
+          <h2>澍龙的小屋</h2>
+          <p>博客、相册、时间轴、树洞与朋友圈。</p>
+        </div>
+        <div class="go">推门进去</div>
+      </a>
+
+      <article class="card soon">
+        <div class="index">02</div>
+        <div>
+          <h2>下一个故事</h2>
+          <p>留给后面一起去的地方和新的纪念。</p>
+        </div>
+        <div class="go">慢慢写</div>
+      </article>
+    </section>
+
+    <footer>
+      <span>龙哥 &amp; 小米椒</span>
+      <span>ALWAYS</span>
+    </footer>
+  </div>
+</body>
+</html>
