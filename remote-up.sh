@@ -7,7 +7,11 @@ cd "$ROOT"
 if ! command -v nginx >/dev/null 2>&1; then
   bash "$ROOT/deploy/server-init.sh"
 else
-  sudo cp "$ROOT/deploy/nginx/vue3.conf" /etc/nginx/sites-available/vue3.conf
+  if [ -f /etc/letsencrypt/live/slwithmj.store/fullchain.pem ]; then
+    sudo cp "$ROOT/deploy/nginx/vue3.https.conf" /etc/nginx/sites-available/vue3.conf
+  else
+    sudo cp "$ROOT/deploy/nginx/vue3.conf" /etc/nginx/sites-available/vue3.conf
+  fi
   sudo ln -sfn /etc/nginx/sites-available/vue3.conf /etc/nginx/sites-enabled/vue3.conf
   sudo rm -f /etc/nginx/sites-enabled/default
 fi
@@ -34,6 +38,10 @@ sudo cp -a "$ROOT/vue3/dist/." /var/www/rsl/
 sudo nginx -t
 sudo systemctl reload nginx
 
-echo "站点已启动。在浏览器打开 http://$(curl -fsS ifconfig.me || hostname -I | awk '{print $1}')"
+if [ -f /etc/letsencrypt/live/slwithmj.store/fullchain.pem ]; then
+  echo "站点已启动。门户 https://slwithmj.store/ ，应用 https://slwithmj.store/rsl/"
+else
+  echo "站点已启动。门户 http://slwithmj.store/ ，应用 http://slwithmj.store/rsl/"
+fi
 echo "登录账号 admin / 123456"
-echo "若外网打不开，到腾讯云防火墙放行 80 端口。"
+echo "若外网打不开，到腾讯云防火墙放行 80 和 443 端口。"

@@ -20,7 +20,11 @@ sudo mkdir -p /var/www/portal /var/www/rsl
 if [ -d "$ROOT/deploy/portal" ]; then
   sudo cp -a "$ROOT/deploy/portal/." /var/www/portal/
 fi
-sudo cp "$ROOT/deploy/nginx/vue3.conf" /etc/nginx/sites-available/vue3.conf
+if [ -f /etc/letsencrypt/live/slwithmj.store/fullchain.pem ]; then
+  sudo cp "$ROOT/deploy/nginx/vue3.https.conf" /etc/nginx/sites-available/vue3.conf
+else
+  sudo cp "$ROOT/deploy/nginx/vue3.conf" /etc/nginx/sites-available/vue3.conf
+fi
 sudo ln -sfn /etc/nginx/sites-available/vue3.conf /etc/nginx/sites-enabled/vue3.conf
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
@@ -30,4 +34,5 @@ sudo systemctl reload nginx
 if command -v ufw >/dev/null 2>&1; then
   sudo ufw allow 22/tcp || true
   sudo ufw allow 80/tcp || true
+  sudo ufw allow 443/tcp || true
 fi

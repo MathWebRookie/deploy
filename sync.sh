@@ -19,9 +19,10 @@ docker save "$IMAGE" | "${SSH[@]}" "$HOST" sudo docker load
   "$ROOT/deploy/docker-compose.prod.yml" \
   "$ROOT/deploy/remote-up.sh" \
   "$ROOT/deploy/server-init.sh" \
+  "$ROOT/deploy/acme-dns-auth.sh" \
   "$ROOT/deploy/.env.example" \
   "$HOST:/opt/rsl/deploy/"
-"${RSYNC_E[@]}" "$ROOT/deploy/nginx/vue3.conf" "$HOST:/opt/rsl/deploy/nginx/vue3.conf"
+"${RSYNC_E[@]}" "$ROOT/deploy/nginx/" "$HOST:/opt/rsl/deploy/nginx/"
 "${RSYNC_E[@]}" "$ROOT/deploy/portal/" "$HOST:/opt/rsl/deploy/portal/"
 "${RSYNC_E[@]}" --delete "$ROOT/vue3/dist/" "$HOST:/opt/rsl/vue3/dist/"
 
