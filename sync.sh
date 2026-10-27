@@ -17,8 +17,10 @@ docker save "$IMAGE" | "${SSH[@]}" "$HOST" sudo docker load
 
 "${RSYNC_E[@]}" \
   "$ROOT/deploy/docker-compose.prod.yml" \
+  "$ROOT/deploy/docker-compose.hermes.yml" \
   "$ROOT/deploy/remote-up.sh" \
   "$ROOT/deploy/server-init.sh" \
+  "$ROOT/deploy/hermes-up.sh" \
   "$ROOT/deploy/acme-dns-auth.sh" \
   "$ROOT/deploy/.env.example" \
   "$HOST:/opt/rsl/deploy/"

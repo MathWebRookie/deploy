@@ -1,0 +1,23 @@
+name: hermes
+
+services:
+  gateway:
+    image: nousresearch/hermes-agent:stable
+    container_name: hermes
+    restart: unless-stopped
+    command: ["gateway", "run"]
+    env_file:
+      - /opt/hermes/deploy.env
+    mem_limit: 1024m
+    ports:
+      - "127.0.0.1:9119:9119"
+      - "127.0.0.1:8642:8642"
+    volumes:
+      - /opt/hermes:/opt/data
+    networks:
+      - rsl
+
+networks:
+  rsl:
+    external: true
+    name: rsl-prod_default
