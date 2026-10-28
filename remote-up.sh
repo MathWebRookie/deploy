@@ -24,6 +24,12 @@ JWT_SECRET=$(openssl rand -hex 32)
 EOF
 fi
 
+if ! grep -q '^LEDGER_SKILL_API_KEY=' "$ROOT/deploy/.env"; then
+  umask 077
+  printf '\nLEDGER_SKILL_API_KEY=%s\n' "$(openssl rand -hex 32)" >> "$ROOT/deploy/.env"
+  chmod 600 "$ROOT/deploy/.env"
+fi
+
 if [ ! -f "$ROOT/vue3/dist/index.html" ]; then
   echo "缺少前端打包结果 $ROOT/vue3/dist" >&2
   exit 1

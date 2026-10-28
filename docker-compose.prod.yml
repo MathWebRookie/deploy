@@ -17,6 +17,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    networks:
+      - database
 
   api:
     image: rsl-prod-api:latest
@@ -27,12 +29,22 @@ services:
       PORT: 3000
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/rsl
       JWT_SECRET: ${JWT_SECRET}
+      LEDGER_SKILL_API_KEY: ${LEDGER_SKILL_API_KEY}
     ports:
       - "127.0.0.1:3000:3000"
     mem_limit: 512m
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - database
+      - hermes_api
 
 volumes:
   pgdata:
+
+networks:
+  database:
+    internal: true
+  hermes_api:
+    name: rsl-hermes-api
