@@ -10,10 +10,11 @@ RSYNC_E=(rsync -az -e "ssh -o BatchMode=yes -o ServerAliveInterval=15")
 cd "$ROOT/vue3"
 pnpm build
 
-docker build -t "$IMAGE" "$ROOT/server"
-docker save "$IMAGE" | "${SSH[@]}" "$HOST" sudo docker load
+"${SSH[@]}" "$HOST" "sudo mkdir -p /opt/rsl/server /opt/rsl/deploy/nginx /opt/rsl/deploy/portal /opt/rsl/vue3 && sudo chown -R ubuntu:ubuntu /opt/rsl"
 
-"${SSH[@]}" "$HOST" "sudo mkdir -p /opt/rsl/deploy/nginx /opt/rsl/deploy/portal /opt/rsl/vue3 && sudo chown -R ubuntu:ubuntu /opt/rsl"
+"${RSYNC_E[@]}" --exclude node_modules --exclude dist --exclude .env \
+  "$ROOT/server/" "$HOST:/opt/rsl/server/"
+"${SSH[@]}" "$HOST" "sudo docker build -t $IMAGE /opt/rsl/server"
 
 "${RSYNC_E[@]}" \
   "$ROOT/deploy/docker-compose.prod.yml" \
