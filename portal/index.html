@@ -195,11 +195,18 @@
       margin-top: 36px;
       display: flex;
       justify-content: space-between;
+      align-items: center;
       gap: 12px;
       color: #b9a3ad;
       letter-spacing: 0.16em;
       font-size: 12px;
     }
+    footer a {
+      color: inherit;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+    }
+    footer a:hover { color: var(--blush); }
 
     @media (max-width: 760px) {
       .wrap { padding: 18px 16px 48px; }
@@ -312,6 +319,7 @@
 
     <footer>
       <span>龙哥 &amp; 小米椒</span>
+      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">陕ICP备2026001120号-1</a>
       <span>FOREVER BLINK</span>
     </footer>
   </div>
