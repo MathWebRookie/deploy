@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>热榜</title>
+  <script>
+    (function () {
+      var saved = localStorage.getItem("hot-theme");
+      var theme = saved || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.dataset.theme = theme === "light" ? "light" : "dark";
+      var settings = {};
+      try { settings = JSON.parse(localStorage.getItem("hot-settings") || "{}"); } catch (error) {}
+      document.documentElement.dataset.heat = settings.showHeat === false ? "off" : "on";
+    })();
+  </script>
+  <style>
+    :root, [data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0e1116;
+      --bg-2: #171b24;
+      --card: #1a1f2b;
+      --line: rgba(255, 255, 255, 0.08);
+      --text: #f4f7fb;
+      --muted: #9aa3b5;
+      --pink: #ff4f9a;
+      --heat: #ffb020;
+      --row: rgba(255, 255, 255, 0.04);
+      --icon-bg: rgba(255, 255, 255, 0.08);
+      --icon: #d7deea;
+      --bad: #ff8d8d;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+      --bar: rgba(14, 17, 22, 0.92);
+    }
+    [data-theme="light"] {
+      color-scheme: light;
+      --bg: #f3f5f8;
+      --bg-2: #ffffff;
+      --card: #ffffff;
+      --line: rgba(18, 28, 45, 0.08);
+      --text: #1b2430;
+      --muted: #667085;
+      --pink: #e23b86;
+      --heat: #c56a00;
+      --row: rgba(18, 28, 45, 0.04);
+      --icon-bg: rgba(18, 28, 45, 0.06);
+      --icon: #344054;
+      --bad: #c24141;
+      --shadow: 0 10px 28px rgba(24, 39, 75, 0.08);
+      --bar: rgba(243, 245, 248, 0.96);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background:
+        radial-gradient(520px 240px at 100% 0%, rgba(255, 79, 154, 0.16), transparent 70%),
+        var(--bg);
+      color: var(--text);
+      font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    }
+    body.overlay-open { overflow: hidden; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 22px 20px calc(48px + env(safe-area-inset-bottom));
+    }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px 16px;
+      margin: -22px -20px 18px;
+      padding: 16px 20px 14px;
+      background: var(--bar);
+      backdrop-filter: blur(12px);
+    }
+    .brand { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+    .brand a { color: var(--muted); text-decoration: none; font-size: 13px; letter-spacing: 0.08em; }
+    .brand a:hover { color: var(--text); }
+    h1 { margin: 0; font-size: 28px; letter-spacing: 0.08em; }
+    .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .action-buttons { display: flex; align-items: center; gap: 8px; }
+    .updated { color: var(--muted); font-size: 13px; white-space: nowrap; }
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--icon-bg);
+      color: var(--icon);
+      cursor: pointer;
+    }
+    .icon-btn svg { width: 18px; height: 18px; display: none; }
+    .icon-btn .always { display: block; }
+    [data-theme="dark"] #theme .moon { display: block; }
+    [data-theme="light"] #theme .sun { display: block; }
+    #refresh:disabled { opacity: 0.65; cursor: default; }
+    #refresh.spinning svg { animation: spin 0.7s linear infinite; }
+    .note { min-height: 22px; margin: 0 0 14px; color: var(--heat); font-size: 13px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .card {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 14px 8px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+    .card header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 6px;
+      padding: 0 0 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .card-heading {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-refresh {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--icon-bg);
+      color: var(--icon);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s ease, background 0.15s ease;
+    }
+    .card:hover .card-refresh,
+    .card:focus-within .card-refresh { opacity: 1; }
+    .card-refresh:hover { background: var(--row); }
+    .card-refresh svg { width: 16px; height: 16px; }
+    .card-refresh.spinning svg { animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (hover: none) {
+      .card-refresh { opacity: 1; }
+    }
+    .card h2 { margin: 0; font-size: 16px; min-width: 0; }
+    .card .state {
+      margin-left: auto;
+      max-width: 48%;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      text-align: right;
+    }
+    .card .state:empty { display: none; }
+    .card .state.bad { color: var(--bad); }
+    ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    ol.is-scroll {
+      height: 360px;
+      overflow: auto;
+    }
+    ol.is-collapsed li:nth-child(n + 9) { display: none; }
+    ol.is-expanded {
+      max-height: 680px;
+      overflow: auto;
+    }
+    li a {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: start;
+      padding: 7px 4px;
+      border-radius: 8px;
+      color: inherit;
+      text-decoration: none;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    html[data-heat="off"] li a { grid-template-columns: 28px minmax(0, 1fr); }
+    html[data-heat="off"] .heat { display: none; }
+    li a:hover { background: var(--row); }
+    li a:hover .title { color: var(--pink); }
+    .rank { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 650; }
+    li:nth-child(-n + 3) .rank { color: var(--heat); }
+    .title { min-width: 0; }
+    .heat { color: var(--muted); font-size: 12px; white-space: nowrap; padding-top: 2px; }
+    .empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
+    .fold {
+      width: 100%;
+      margin: 4px 0 6px;
+      padding: 8px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .fold:hover { color: var(--text); background: var(--row); }
+    footer {
+      display: flex;
+      justify-content: center;
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    footer a { color: inherit; text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    .source-bar { display: none; }
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      background: rgba(8, 10, 14, 0.48);
+    }
+    .drawer {
+      position: fixed;
+      z-index: 31;
+      top: 0;
+      right: 0;
+      width: min(380px, 100%);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+      background: var(--card);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      overflow: auto;
+    }
+    .drawer[hidden], .backdrop[hidden], .preview[hidden] { display: none !important; }
+    .drawer-head, .preview-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .drawer-head h2, .preview-head h2 {
+      margin: 0;
+      flex: 1;
+      min-width: 0;
+      font-size: 18px;
+    }
+    .preview-head h2 {
+      font-size: 15px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .text-btn {
+      border: 0;
+      border-radius: 999px;
+      min-height: 36px;
+      padding: 8px 12px;
+      background: var(--icon-bg);
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      flex: none;
+    }
+    .setting-label { margin-bottom: 8px; color: var(--muted); font-size: 13px; }
+    .setting-hint { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .segment, .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .checks label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .checks label:has(input:checked) {
+      border-color: transparent;
+      background: var(--row);
+      font-weight: 700;
+    }
+    .checks input { width: 16px; height: 16px; accent-color: var(--pink); }
+    .segment button {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+    .segment button.active {
+      border-color: transparent;
+      background: var(--pink);
+      color: #1a0610;
+      font-weight: 700;
+    }
+    .preview {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+    .preview-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .preview-actions { display: flex; gap: 8px; flex: none; }
+    .preview iframe { flex: 1; width: 100%; border: 0; background: #fff; }
+    .preview-hint {
+      margin: 0;
+      padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
+      color: var(--muted);
+      font-size: 12px;
+    }
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 720px) {
+      .wrap { padding: 12px 12px calc(92px + env(safe-area-inset-bottom)); }
+      .topbar {
+        flex-wrap: wrap;
+        margin: -12px -12px 14px;
+        padding: 12px 12px 10px;
+        row-gap: 8px;
+      }
+      .brand { flex: 1 1 auto; gap: 10px; }
+      h1 { font-size: 22px; letter-spacing: 0.04em; white-space: nowrap; }
+      .brand a { white-space: nowrap; }
+      .actions { flex: 1 1 100%; justify-content: space-between; }
+      .updated { font-size: 12px; }
+      .grid { grid-template-columns: 1fr; }
+      ol.is-scroll { height: auto; overflow: visible; }
+      ol.is-expanded { max-height: none; overflow: visible; }
+      .card-refresh { opacity: 1; width: 36px; height: 36px; }
+      li a { padding: 8px 2px; }
+      .heat { font-size: 11px; }
+      .source-bar {
+        position: fixed;
+        z-index: 32;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        justify-content: space-around;
+        gap: 2px;
+        padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+        background: var(--bar);
+        border-top: 1px solid var(--line);
+        backdrop-filter: blur(12px);
+      }
+      .source-tab {
+        flex: 1;
+        min-width: 0;
+        padding: 4px 0;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 11px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        cursor: pointer;
+      }
+      .source-tab .mark {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--mark);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .source-tab .mark.compact { font-size: 10px; }
+      .source-tab .label {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .source-tab.active { color: var(--mark); font-weight: 700; }
+      .source-tab.active .mark { box-shadow: 0 0 0 2px var(--bg-2), 0 0 0 4px var(--mark); }
+      .drawer {
+        z-index: 35;
+        top: auto;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: auto;
+        max-height: min(70vh, 560px);
+        bottom: calc(76px + env(safe-area-inset-bottom));
+        border-radius: 18px 18px 0 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <div class="brand">
+        <h1>热榜</h1>
+        <a href="/">返回首页</a>
+      </div>
+      <div class="actions">
+        <div class="updated" id="updated">正在读取</div>
+        <div class="action-buttons">
+          <button type="button" id="theme" class="icon-btn" aria-label="切换主题">
+            <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <button type="button" id="refresh" class="icon-btn" aria-label="刷新">
+            <svg class="always" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button type="button" id="settings" class="icon-btn" aria-label="设置">
+            <svg class="always" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+    <p class="note" id="note"></p>
+    <div class="grid" id="grid"></div>
+    <footer>
+      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">陕ICP备2026001120号-1</a>
+    </footer>
+  </div>
+  <nav class="source-bar" id="source-bar" aria-label="切换热榜"></nav>
+  <div class="backdrop" id="backdrop" hidden></div>
+  <aside class="drawer" id="drawer" hidden aria-labelledby="drawer-title">
+    <div class="drawer-head">
+      <h2 id="drawer-title">设置</h2>
+      <button type="button" class="text-btn" id="drawer-close">关闭</button>
+    </div>
+    <section class="setting">
+      <div class="setting-label" id="label-link">打开方式</div>
+      <div class="segment" role="radiogroup" aria-labelledby="label-link">
+        <button type="button" role="radio" data-setting="linkMode" data-value="blank">新标签</button>
+        <button type="button" role="radio" data-setting="linkMode" data-value="iframe">页内预览</button>
+      </div>
+      <p class="setting-hint">页内预览遇到不允许嵌入的网站时会是空白，可以改用新标签打开。</p>
+    </section>
+    <section class="setting">
+      <div class="setting-label" id="label-heat">热度</div>
+      <div class="segment" role="radiogroup" aria-labelledby="label-heat">
+        <button type="button" role="radio" data-setting="showHeat" data-value="on">显示</button>
+        <button type="button" role="radio" data-setting="showHeat" data-value="off">隐藏</button>
+      </div>
+    </section>
+    <section class="setting">
+      <div class="setting-label" id="label-sources">显示的榜单</div>
+      <div class="checks" id="source-checks" role="group" aria-labelledby="label-sources"></div>
+      <p class="setting-hint">至少保留一个。电脑上按勾选显示卡片，手机底栏也只保留这些榜。</p>
+    </section>
+    <section class="setting">
+      <div class="setting-label" id="label-list">列表</div>
+      <div class="segment" role="radiogroup" aria-labelledby="label-list">
+        <button type="button" role="radio" data-setting="listMode" data-value="collapsed">收起 8 条</button>
+        <button type="button" role="radio" data-setting="listMode" data-value="expanded">展开</button>
+      </div>
+    </section>
+  </aside>
+  <div class="preview" id="preview" hidden>
+    <div class="preview-head">
+      <h2 id="preview-title"></h2>
+      <div class="preview-actions">
+        <a class="text-btn" id="preview-open" target="_blank" rel="noopener noreferrer">新标签打开</a>
+        <button type="button" class="text-btn" id="preview-close">关闭</button>
+      </div>
+    </div>
+    <iframe id="preview-frame" title="页内预览" referrerpolicy="no-referrer"></iframe>
+    <p class="preview-hint">如果这里是空白，说明该网站不允许被嵌入。</p>
+  </div>
+  <script src="app.js?v=20261104c"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+[Unit]
+Description=Hot list manual refresh
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+Environment=HOT_DIR=/var/www/portal/hot
+Environment=HOT_FETCH=/opt/rsl/deploy/hot/fetch.py
+Environment=HOT_LOCK=/tmp/hot-fetch.lock
+ExecStart=/usr/bin/python3 /opt/rsl/deploy/hot/refresh_server.py
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

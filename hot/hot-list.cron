@@ -1,0 +1,6 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+HOT_DIR=/var/www/portal/hot
+HOT_LOCK=/tmp/hot-fetch.lock
+
+*/15 * * * * www-data /usr/bin/python3 /opt/rsl/deploy/hot/fetch.py --try
