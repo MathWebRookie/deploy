@@ -6,6 +6,29 @@
   <title>热榜</title>
   <script>
     (function () {
+      var fromKey = "hot-from-home";
+      var fromHome = localStorage.getItem(fromKey) === "1";
+      try {
+        var params = new URLSearchParams(location.search);
+        var nav = performance.getEntriesByType("navigation")[0];
+        var fresh = !nav || nav.type === "navigate";
+        if (params.get("from") === "home") {
+          fromHome = true;
+          localStorage.setItem(fromKey, "1");
+          params.delete("from");
+          var query = params.toString();
+          history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
+        } else if (fresh) {
+          var refHome = false;
+          if (document.referrer) {
+            var ref = new URL(document.referrer);
+            refHome = ref.origin === location.origin && (ref.pathname === "/" || ref.pathname === "/index.html");
+          }
+          fromHome = refHome;
+          localStorage.setItem(fromKey, fromHome ? "1" : "0");
+        }
+      } catch (error) {}
+      document.documentElement.dataset.fromHome = fromHome ? "on" : "off";
       var saved = localStorage.getItem("hot-theme");
       var theme = saved || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
       document.documentElement.dataset.theme = theme === "light" ? "light" : "dark";
@@ -13,6 +36,7 @@
       try { settings = JSON.parse(localStorage.getItem("hot-settings") || "{}"); } catch (error) {}
       document.documentElement.dataset.heat = settings.showHeat === false ? "off" : "on";
       document.documentElement.dataset.stealth = settings.stealth === true ? "on" : "off";
+      document.documentElement.dataset.scrollbar = settings.showScrollbar === false ? "off" : "on";
       var fontSize = Number(settings.fontSize);
       if (fontSize >= 12 && fontSize <= 20) {
         document.documentElement.style.setProperty("--list-size", fontSize + "px");
@@ -99,6 +123,7 @@
     }
     .brand { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
     .brand a { color: var(--muted); text-decoration: none; font-size: 13px; letter-spacing: 0.08em; }
+    html:not([data-from-home="on"]) .home-link { display: none; }
     .brand a:hover { color: var(--text); }
     h1 { margin: 0; font-size: 28px; letter-spacing: 0.08em; }
     .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
@@ -206,11 +231,18 @@
       margin: 0;
       padding: 0;
     }
-    ol.is-scroll, ol.is-clip {
+    ol.is-scroll {
       height: var(--card-height, 360px);
+      overflow: auto;
     }
-    ol.is-scroll { overflow: auto; }
-    ol.is-clip { overflow: hidden; }
+    html[data-scrollbar="off"] ol.is-scroll,
+    html[data-scrollbar="off"] ol.is-expanded {
+      scrollbar-width: none;
+    }
+    html[data-scrollbar="off"] ol.is-scroll::-webkit-scrollbar,
+    html[data-scrollbar="off"] ol.is-expanded::-webkit-scrollbar {
+      display: none;
+    }
     ol.is-collapsed li:nth-child(n + 9) { display: none; }
     ol.is-expanded {
       max-height: 680px;
@@ -373,7 +405,29 @@
     .field-label { color: var(--text); font-size: 13px; line-height: 1.35; }
     .setting-hint { margin: 4px 2px 8px; color: var(--muted); font-size: 12px; line-height: 1.5; }
     .field-note { grid-column: 1 / -1; margin: 0 0 2px; }
-    .segment { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .switch-line { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+    .switch-caption { color: var(--muted); font-size: 13px; }
+    .switch {
+      width: 42px;
+      height: 26px;
+      padding: 3px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--icon-bg);
+      cursor: pointer;
+      flex: none;
+    }
+    .switch span {
+      display: block;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+      transition: transform 0.18s ease;
+    }
+    .switch[aria-checked="true"] { background: #2f7bf6; }
+    .switch[aria-checked="true"] span { transform: translateX(16px); }
     .stepper {
       display: grid;
       grid-template-columns: 36px minmax(0, 1fr) 36px;
@@ -395,7 +449,7 @@
     #source-checks { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
     .order-row {
       display: grid;
-      grid-template-columns: 16px minmax(0, 1fr) auto auto;
+      grid-template-columns: 28px minmax(0, 1fr) auto auto;
       gap: 8px;
       align-items: center;
       min-height: 44px;
@@ -411,13 +465,21 @@
     .order-row.is-origin { opacity: 0.32; }
     .order-row label { display: flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; }
     .grip {
+      align-self: stretch;
+      min-height: 32px;
+      cursor: grab;
+      touch-action: none;
+    }
+    .grip::before {
+      content: "";
+      display: block;
       width: 14px;
       height: 18px;
+      margin: 7px auto;
       background: radial-gradient(circle, var(--muted) 1.15px, transparent 1.35px) 0 0 / 7px 6px;
-      opacity: 0.9;
     }
     .order-row:not(:has(input:checked)) .grip { opacity: 0.28; }
-    .order-row input { width: 16px; height: 16px; accent-color: var(--pink); }
+    .order-row input { width: 16px; height: 16px; accent-color: #2f7bf6; }
     .drag-ghost {
       position: fixed;
       z-index: 80;
@@ -426,21 +488,6 @@
       background: var(--bg-2);
       box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
       transform: scale(1.03);
-    }
-    .segment button {
-      min-height: 40px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: transparent;
-      color: var(--text);
-      font: inherit;
-      cursor: pointer;
-    }
-    .segment button.active {
-      border-color: transparent;
-      background: var(--pink);
-      color: #1a0610;
-      font-weight: 700;
     }
     .preview {
       position: fixed;
@@ -557,7 +604,7 @@
     <header class="topbar">
       <div class="brand">
         <h1>热榜</h1>
-        <a href="/">返回首页</a>
+        <a class="home-link" href="/">返回首页</a>
       </div>
       <div class="actions">
         <div class="updated" id="updated">正在读取</div>
@@ -609,37 +656,37 @@
       </div>
       <div class="field">
         <div class="field-label" id="label-stealth">偷摸模式</div>
-        <div class="segment" role="radiogroup" aria-labelledby="label-stealth">
-          <button type="button" role="radio" data-setting="stealth" data-value="off">关闭</button>
-          <button type="button" role="radio" data-setting="stealth" data-value="on">开启</button>
+        <div class="switch-line">
+          <span class="switch-caption">关闭</span>
+          <button type="button" class="switch" role="switch" data-setting="stealth" data-off="off" data-on="on" data-off-label="关闭" data-on-label="开启" aria-labelledby="label-stealth"><span></span></button>
         </div>
       </div>
       <div class="field">
-        <div class="field-label" id="label-clip">超出隐藏</div>
-        <div class="segment" role="radiogroup" aria-labelledby="label-clip">
-          <button type="button" role="radio" data-setting="clipOverflow" data-value="off">关闭</button>
-          <button type="button" role="radio" data-setting="clipOverflow" data-value="on">开启</button>
+        <div class="field-label" id="label-scrollbar">滚动条</div>
+        <div class="switch-line">
+          <span class="switch-caption">显示</span>
+          <button type="button" class="switch" role="switch" data-setting="showScrollbar" data-off="off" data-on="on" data-off-label="隐藏" data-on-label="显示" aria-labelledby="label-scrollbar"><span></span></button>
         </div>
       </div>
       <div class="field">
         <div class="field-label" id="label-logo">LOGO</div>
-        <div class="segment" role="radiogroup" aria-labelledby="label-logo">
-          <button type="button" role="radio" data-setting="showLogo" data-value="off">关闭</button>
-          <button type="button" role="radio" data-setting="showLogo" data-value="on">开启</button>
+        <div class="switch-line">
+          <span class="switch-caption">开启</span>
+          <button type="button" class="switch" role="switch" data-setting="showLogo" data-off="off" data-on="on" data-off-label="关闭" data-on-label="开启" aria-labelledby="label-logo"><span></span></button>
         </div>
       </div>
       <div class="field">
         <div class="field-label" id="label-cats">首页分类</div>
-        <div class="segment" role="radiogroup" aria-labelledby="label-cats">
-          <button type="button" role="radio" data-setting="showCategories" data-value="off">关闭</button>
-          <button type="button" role="radio" data-setting="showCategories" data-value="on">开启</button>
+        <div class="switch-line">
+          <span class="switch-caption">开启</span>
+          <button type="button" class="switch" role="switch" data-setting="showCategories" data-off="off" data-on="on" data-off-label="关闭" data-on-label="开启" aria-labelledby="label-cats"><span></span></button>
         </div>
       </div>
       <div class="field">
         <div class="field-label" id="label-today">今日热门</div>
-        <div class="segment" role="radiogroup" aria-labelledby="label-today">
-          <button type="button" role="radio" data-setting="showToday" data-value="on">显示</button>
-          <button type="button" role="radio" data-setting="showToday" data-value="off">隐藏</button>
+        <div class="switch-line">
+          <span class="switch-caption">隐藏</span>
+          <button type="button" class="switch" role="switch" data-setting="showToday" data-off="off" data-on="on" data-off-label="隐藏" data-on-label="显示" aria-labelledby="label-today"><span></span></button>
         </div>
       </div>
     </section>
@@ -675,24 +722,24 @@
       <h3 class="group-title">阅读</h3>
       <div class="field">
         <div class="field-label" id="label-link">打开方式</div>
-        <div class="segment" role="radiogroup" aria-labelledby="label-link">
-          <button type="button" role="radio" data-setting="linkMode" data-value="blank">新标签</button>
-          <button type="button" role="radio" data-setting="linkMode" data-value="iframe">页内预览</button>
+        <div class="switch-line">
+          <span class="switch-caption">新标签</span>
+          <button type="button" class="switch" role="switch" data-setting="linkMode" data-off="blank" data-on="iframe" data-off-label="新标签" data-on-label="页内预览" aria-labelledby="label-link"><span></span></button>
         </div>
         <p class="setting-hint field-note">页内预览遇到不允许嵌入的网站时会是空白，可以改用新标签打开。</p>
       </div>
       <div class="field">
         <div class="field-label" id="label-heat">热度</div>
-        <div class="segment" role="radiogroup" aria-labelledby="label-heat">
-          <button type="button" role="radio" data-setting="showHeat" data-value="on">显示</button>
-          <button type="button" role="radio" data-setting="showHeat" data-value="off">隐藏</button>
+        <div class="switch-line">
+          <span class="switch-caption">显示</span>
+          <button type="button" class="switch" role="switch" data-setting="showHeat" data-off="off" data-on="on" data-off-label="隐藏" data-on-label="显示" aria-labelledby="label-heat"><span></span></button>
         </div>
       </div>
       <div class="field">
         <div class="field-label" id="label-list">列表</div>
-        <div class="segment" role="radiogroup" aria-labelledby="label-list">
-          <button type="button" role="radio" data-setting="listMode" data-value="collapsed">收起 8 条</button>
-          <button type="button" role="radio" data-setting="listMode" data-value="expanded">展开</button>
+        <div class="switch-line">
+          <span class="switch-caption">收起</span>
+          <button type="button" class="switch" role="switch" data-setting="listMode" data-off="collapsed" data-on="expanded" data-off-label="收起" data-on-label="展开" aria-labelledby="label-list"><span></span></button>
         </div>
       </div>
     </section>
@@ -713,6 +760,6 @@
     <iframe id="preview-frame" title="页内预览" referrerpolicy="no-referrer"></iframe>
     <p class="preview-hint">如果这里是空白，说明该网站不允许被嵌入。</p>
   </div>
-  <script src="app.js?v=20261105g"></script>
+  <script src="app.js?v=20261105j"></script>
 </body>
 </html>

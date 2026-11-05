@@ -52,14 +52,16 @@ function loadSettings() {
     cardHeight: 360,
     sideSpace: 0,
     stealth: false,
-    clipOverflow: false,
-    showLogo: false,
-    showCategories: false,
+    showScrollbar: true,
+    showLogo: true,
+    showCategories: true,
     showToday: false,
+    revision: 2,
   };
   try {
     const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
     const normalized = normalizeSources(raw.sources, raw.sourcesSeen);
+    const preferShown = !(Number(raw.revision) >= 2);
     const mobileSource = raw.mobileSource === "today" || normalized.sources.includes(raw.mobileSource)
       ? raw.mobileSource
       : normalized.sources[0];
@@ -75,10 +77,11 @@ function loadSettings() {
       cardHeight: readNumber(raw.cardHeight, 240, 680, defaults.cardHeight),
       sideSpace: readNumber(raw.sideSpace, 0, 240, defaults.sideSpace),
       stealth: raw.stealth === true,
-      clipOverflow: raw.clipOverflow === true,
-      showLogo: raw.showLogo === true,
-      showCategories: raw.showCategories === true,
+      showScrollbar: raw.showScrollbar !== false,
+      showLogo: preferShown ? true : raw.showLogo === true,
+      showCategories: preferShown ? true : raw.showCategories === true,
       showToday: raw.showToday === true,
+      revision: 2,
     };
   } catch (error) {
     return defaults;
@@ -120,6 +123,7 @@ function applyHeat() {
 
 function applyAppearance() {
   document.documentElement.dataset.stealth = settings.stealth ? "on" : "off";
+  document.documentElement.dataset.scrollbar = settings.showScrollbar ? "on" : "off";
   const style = document.documentElement.style;
   style.setProperty("--list-size", `${settings.fontSize}px`);
   style.setProperty("--card-width", `${settings.cardWidth}px`);
@@ -319,7 +323,7 @@ function closePreview() {
 
 function settingValue(key) {
   if (key === "showHeat") return settings.showHeat ? "on" : "off";
-  if (["stealth", "clipOverflow", "showLogo", "showCategories", "showToday"].includes(key)) {
+  if (["stealth", "showScrollbar", "showLogo", "showCategories", "showToday"].includes(key)) {
     return settings[key] ? "on" : "off";
   }
   return settings[key];
@@ -327,10 +331,11 @@ function settingValue(key) {
 
 function syncDrawer() {
   buildSourceChecks();
-  drawer.querySelectorAll("[data-setting]").forEach((button) => {
-    const on = button.dataset.value === settingValue(button.dataset.setting);
-    button.classList.toggle("active", on);
+  drawer.querySelectorAll(".switch").forEach((button) => {
+    const on = settingValue(button.dataset.setting) === button.dataset.on;
     button.setAttribute("aria-checked", on ? "true" : "false");
+    const caption = button.previousElementSibling;
+    if (caption) caption.textContent = on ? button.dataset.onLabel : button.dataset.offLabel;
   });
   drawer.querySelectorAll("#source-checks input").forEach((input) => {
     input.checked = settings.sources.includes(input.value);
@@ -427,6 +432,11 @@ sourceChecks.addEventListener("pointerdown", (event) => {
   const row = event.target.closest(".order-row");
   if (!row || event.target.closest("button, input")) return;
   if (!row.querySelector("input").checked) return;
+  if (event.target.closest(".grip")) {
+    event.preventDefault();
+    startRowDrag(row, event.pointerId, event.clientX, event.clientY);
+    return;
+  }
   const startX = event.clientX;
   const startY = event.clientY;
   let armed = true;
@@ -553,7 +563,7 @@ function endRowDrag(event) {
 }
 
 function updateSetting(key, value) {
-  if (["showHeat", "stealth", "clipOverflow", "showLogo", "showCategories", "showToday"].includes(key)) {
+  if (["showHeat", "stealth", "showScrollbar", "showLogo", "showCategories", "showToday"].includes(key)) {
     settings[key] = value === "on";
   } else settings[key] = value;
   if (key === "showToday" && !settings.showToday && settings.mobileSource === "today") {
@@ -707,14 +717,12 @@ function render(data) {
       });
       const shown = list.children.length;
       const mobile = isMobile();
-      const clip = settings.clipOverflow;
-      const expanded = mobile && !clip && shown > 8 && isExpanded(source.id);
+      const expanded = mobile && shown > 8 && isExpanded(source.id);
       list.classList.toggle("is-collapsed", mobile && shown > 8 && !expanded);
       list.classList.toggle("is-expanded", expanded);
-      list.classList.toggle("is-scroll", !mobile && !clip);
-      list.classList.toggle("is-clip", !mobile && clip);
+      list.classList.toggle("is-scroll", !mobile);
       card.append(list);
-      if (mobile && shown > 8 && !clip) {
+      if (mobile && shown > 8) {
         const fold = document.createElement("button");
         fold.type = "button";
         fold.className = "fold";
@@ -815,9 +823,11 @@ drawer.addEventListener("click", (event) => {
     changeNumber(stepper.dataset.number, Number(step.dataset.dir));
     return;
   }
-  const button = event.target.closest("[data-setting]");
-  if (!button) return;
-  updateSetting(button.dataset.setting, button.dataset.value);
+  const sw = event.target.closest(".switch");
+  if (sw) {
+    const next = settingValue(sw.dataset.setting) === sw.dataset.on ? sw.dataset.off : sw.dataset.on;
+    updateSetting(sw.dataset.setting, next);
+  }
 });
 previewClose.addEventListener("click", closePreview);
 document.addEventListener("keydown", (event) => {
