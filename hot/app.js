@@ -22,7 +22,14 @@ const CATALOG = [
   { id: "ithome", name: "IT之家", short: "IT", color: "#c0392b" },
   { id: "juejin", name: "掘金", short: "掘", color: "#1e80ff" },
   { id: "baidu", name: "百度", short: "百", color: "#4e6ef2" },
+  { id: "netease", name: "网易", short: "网", color: "#c20c0c" },
+  { id: "qq", name: "腾讯", short: "腾", color: "#0052d9" },
+  { id: "kr36", name: "36氪", short: "氪", color: "#4285f4" },
+  { id: "thepaper", name: "澎湃", short: "澎", color: "#0072c6" },
+  { id: "acfun", name: "A站", short: "A", color: "#fd4c5d" },
+  { id: "douban", name: "豆瓣", short: "豆", color: "#007722" },
 ];
+const ORIGINAL_SOURCES = ["zhihu", "weibo", "bilibili", "ithome", "juejin", "baidu"];
 const mobileQuery = matchMedia("(max-width: 720px)");
 const expandedIds = new Set();
 const collapsedIds = new Set();
@@ -39,24 +46,29 @@ function loadSettings() {
   };
   try {
     const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
-    const sources = normalizeSources(raw.sources);
+    const normalized = normalizeSources(raw.sources, raw.sourcesSeen);
     return {
       linkMode: raw.linkMode === "iframe" ? "iframe" : defaults.linkMode,
       showHeat: raw.showHeat === false ? false : defaults.showHeat,
       listMode: raw.listMode === "expanded" ? "expanded" : defaults.listMode,
-      sources,
-      mobileSource: sources.includes(raw.mobileSource) ? raw.mobileSource : sources[0],
+      sources: normalized.sources,
+      sourcesSeen: normalized.seen,
+      mobileSource: normalized.sources.includes(raw.mobileSource) ? raw.mobileSource : normalized.sources[0],
     };
   } catch (error) {
     return defaults;
   }
 }
 
-function normalizeSources(value) {
-  const allowed = new Set(CATALOG.map((item) => item.id));
-  const picked = Array.isArray(value) ? value.filter((id) => allowed.has(id)) : CATALOG.map((item) => item.id);
-  const unique = CATALOG.map((item) => item.id).filter((id) => picked.includes(id));
-  return unique.length ? unique : CATALOG.map((item) => item.id);
+function normalizeSources(value, seen) {
+  const all = CATALOG.map((item) => item.id);
+  const allowed = new Set(all);
+  const picked = Array.isArray(value) ? value.filter((id) => allowed.has(id)) : null;
+  if (!picked || !picked.length) return { sources: all, seen: all };
+  const seenIds = Array.isArray(seen) ? seen.filter((id) => allowed.has(id)) : ORIGINAL_SOURCES;
+  const newcomers = all.filter((id) => !seenIds.includes(id));
+  const sources = all.filter((id) => picked.includes(id) || newcomers.includes(id));
+  return { sources: sources.length ? sources : all, seen: all };
 }
 
 function persist() {
@@ -457,6 +469,7 @@ mobileQuery.addEventListener("change", () => {
 
 buildSourceChecks();
 buildSourceBar();
+persist();
 syncDrawer();
 load().catch(() => {
   updated.textContent = "还没有数据";

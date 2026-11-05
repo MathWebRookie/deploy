@@ -2,6 +2,7 @@
 """Fetch public hot lists into data.json. Stdlib only."""
 
 import fcntl
+import gzip
 import json
 import os
 import sys
@@ -22,13 +23,41 @@ UA = (
 )
 
 
-def get_json(url, headers=None):
-    request_headers = {"User-Agent": UA, "Accept": "application/json"}
+def read_body(response):
+    raw = response.read()
+    if raw[:2] == b"\x1f\x8b":
+        raw = gzip.decompress(raw)
+    return raw.decode("utf-8")
+
+
+def get_text(url, headers=None):
+    request_headers = {"User-Agent": UA, "Accept": "application/json,text/plain,*/*"}
     if headers:
         request_headers.update(headers)
     request = urllib.request.Request(url, headers=request_headers)
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-        return json.loads(response.read().decode("utf-8"))
+        return read_body(response)
+
+
+def get_json(url, headers=None):
+    return json.loads(get_text(url, headers))
+
+
+def post_json(url, payload, headers=None):
+    request_headers = {
+        "User-Agent": UA,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    if headers:
+        request_headers.update(headers)
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=request_headers,
+    )
+    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        return json.loads(read_body(response))
 
 
 def format_heat(value):
@@ -203,6 +232,130 @@ def fetch_baidu():
     return items
 
 
+def fetch_netease():
+    text = get_text(
+        "https://3g.163.com/touch/reconstruct/article/list/BBM54PGAwangning/0-20.html",
+        {"Referer": "https://3g.163.com/"},
+    )
+    start, end = text.find("("), text.rfind(")")
+    if start != -1 and end > start:
+        text = text[start + 1 : end]
+    payload = json.loads(text)
+    rows = []
+    for value in payload.values():
+        if isinstance(value, list):
+            rows = value
+            break
+    items = []
+    for row in rows:
+        title = (row.get("title") or "").strip()
+        docid = (row.get("docid") or "").strip()
+        url = (row.get("url") or "").strip()
+        if not url.startswith("http") and docid:
+            url = f"https://www.163.com/dy/article/{docid}.html"
+        if title and url.startswith("http"):
+            items.append({"title": title, "url": url, "heat": format_heat(row.get("commentCount"))})
+        if len(items) >= LIMIT:
+            break
+    return items
+
+
+def fetch_qq():
+    payload = get_json("https://r.inews.qq.com/gw/event/hot_ranking_list?page_size=50")
+    rows = []
+    for block in payload.get("idlist") or []:
+        rows.extend(block.get("newslist") or [])
+    items = []
+    for row in rows:
+        url = (row.get("url") or row.get("surl") or "").strip()
+        hot = row.get("hotEvent") or {}
+        title = (hot.get("title") or row.get("title") or "").strip()
+        if not title or not url.startswith("http"):
+            continue
+        items.append({"title": title, "url": url, "heat": format_heat(hot.get("hotScore"))})
+        if len(items) >= LIMIT:
+            break
+    return items
+
+
+def fetch_kr36():
+    payload = post_json(
+        "https://gateway.36kr.com/api/mis/nav/home/nav/rank/hot",
+        {"partner_id": "web", "param": {"siteId": 1, "platformId": 2}},
+        {"Referer": "https://36kr.com/"},
+    )
+    rows = ((payload.get("data") or {}).get("hotRankList") or [])
+    items = []
+    for row in rows:
+        material = row.get("templateMaterial") or {}
+        title = (material.get("widgetTitle") or "").strip()
+        item_id = row.get("itemId") or material.get("itemId")
+        if title and item_id:
+            items.append(
+                {
+                    "title": title,
+                    "url": f"https://36kr.com/p/{item_id}",
+                    "heat": format_heat(material.get("statRead")),
+                }
+            )
+        if len(items) >= LIMIT:
+            break
+    return items
+
+
+def fetch_thepaper():
+    payload = get_json("https://cache.thepaper.cn/contentapi/contVisit/hotNews")
+    items = []
+    for row in payload.get("data") or []:
+        title = (row.get("name") or "").strip()
+        content_id = str(row.get("contId") or "").strip()
+        if title and content_id:
+            items.append(
+                {
+                    "title": title,
+                    "url": f"https://www.thepaper.cn/newsDetail_forward_{content_id}",
+                    "heat": format_heat(row.get("interactionNum")),
+                }
+            )
+        if len(items) >= LIMIT:
+            break
+    return items
+
+
+def fetch_acfun():
+    payload = get_json(
+        "https://www.acfun.cn/rest/pc-direct/rank/channel?channelId=0&rankLimit=30&rankPeriod=DAY"
+    )
+    items = []
+    for row in payload.get("rankList") or []:
+        title = (row.get("contentTitle") or row.get("title") or "").strip()
+        url = (row.get("shareUrl") or "").strip()
+        content_id = row.get("contentId") or row.get("dougaId")
+        if not url.startswith("http") and content_id:
+            url = f"https://www.acfun.cn/v/ac{content_id}"
+        if title and url.startswith("http"):
+            items.append({"title": title, "url": url, "heat": format_heat(row.get("viewCount"))})
+        if len(items) >= LIMIT:
+            break
+    return items
+
+
+def fetch_douban():
+    payload = get_json(
+        "https://movie.douban.com/j/search_subjects?type=movie&tag=%E7%83%AD%E9%97%A8&page_limit=30&page_start=0",
+        {"Referer": "https://movie.douban.com/"},
+    )
+    items = []
+    for row in payload.get("subjects") or []:
+        title = (row.get("title") or "").strip()
+        url = (row.get("url") or "").strip()
+        if title and url.startswith("http"):
+            items.append({"title": title, "url": url, "heat": (row.get("rate") or "").strip()})
+        if len(items) >= LIMIT:
+            break
+    return items
+
+
 SOURCES = (
     ("zhihu", "知乎热榜", fetch_zhihu),
     ("weibo", "微博热搜", fetch_weibo),
@@ -210,6 +363,12 @@ SOURCES = (
     ("ithome", "IT之家", fetch_ithome),
     ("juejin", "掘金热榜", fetch_juejin),
     ("baidu", "百度热搜", fetch_baidu),
+    ("netease", "网易新闻", fetch_netease),
+    ("qq", "腾讯热点", fetch_qq),
+    ("kr36", "36氪热榜", fetch_kr36),
+    ("thepaper", "澎湃热闻", fetch_thepaper),
+    ("acfun", "AcFun日榜", fetch_acfun),
+    ("douban", "豆瓣电影", fetch_douban),
 )
 
 

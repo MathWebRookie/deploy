@@ -365,16 +365,17 @@
         right: 0;
         bottom: 0;
         display: flex;
-        justify-content: space-around;
+        justify-content: flex-start;
         gap: 2px;
         padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
         background: var(--bar);
         border-top: 1px solid var(--line);
         backdrop-filter: blur(12px);
+        overflow-x: auto;
       }
       .source-tab {
-        flex: 1;
-        min-width: 0;
+        flex: 0 0 52px;
+        min-width: 52px;
         padding: 4px 0;
         border: 0;
         background: transparent;
@@ -496,6 +497,6 @@
     <iframe id="preview-frame" title="页内预览" referrerpolicy="no-referrer"></iframe>
     <p class="preview-hint">如果这里是空白，说明该网站不允许被嵌入。</p>
   </div>
-  <script src="app.js?v=20261104c"></script>
+  <script src="app.js?v=20261105"></script>
 </body>
 </html>
