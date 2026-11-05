@@ -12,6 +12,23 @@
       var settings = {};
       try { settings = JSON.parse(localStorage.getItem("hot-settings") || "{}"); } catch (error) {}
       document.documentElement.dataset.heat = settings.showHeat === false ? "off" : "on";
+      document.documentElement.dataset.stealth = settings.stealth === true ? "on" : "off";
+      var fontSize = Number(settings.fontSize);
+      if (fontSize >= 12 && fontSize <= 20) {
+        document.documentElement.style.setProperty("--list-size", fontSize + "px");
+      }
+      function pick(value, min, max, fallback) {
+        var number = Number(value);
+        return number >= min && number <= max ? number : fallback;
+      }
+      var cardWidth = pick(settings.cardWidth, 240, 400, 300);
+      var cardHeight = pick(settings.cardHeight, 240, 680, 360);
+      var sideSpace = pick(settings.sideSpace, 0, 240, 0);
+      var rootStyle = document.documentElement.style;
+      rootStyle.setProperty("--card-width", cardWidth + "px");
+      rootStyle.setProperty("--card-height", cardHeight + "px");
+      rootStyle.setProperty("--side-space", sideSpace + "px");
+      rootStyle.setProperty("--grid-max", (5 * cardWidth + 56 + 40) + "px");
     })();
   </script>
   <style>
@@ -62,7 +79,8 @@
     button, a { -webkit-tap-highlight-color: transparent; }
     button:focus-visible, a:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
     .wrap {
-      max-width: 1280px;
+      width: min(var(--grid-max, 1596px), calc(100% - 2 * var(--side-space, 0px)));
+      max-width: var(--grid-max, 1596px);
       margin: 0 auto;
       padding: 22px 20px calc(48px + env(safe-area-inset-bottom));
     }
@@ -107,7 +125,7 @@
     .note { min-height: 22px; margin: 0 0 14px; color: var(--heat); font-size: 13px; }
     .grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-width, 300px)), 1fr));
       gap: 14px;
       align-items: start;
     }
@@ -159,7 +177,20 @@
     @media (hover: none) {
       .card-refresh { opacity: 1; }
     }
-    .card h2 { margin: 0; font-size: 16px; min-width: 0; }
+    .card h2 { margin: 0; font-size: calc(var(--list-size, 14px) + 2px); min-width: 0; }
+    .title-wrap { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+    .ago { color: var(--muted); font-size: 12px; font-weight: 400; white-space: nowrap; }
+    .card-logo {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      flex: none;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+    }
     .card .state {
       margin-left: auto;
       max-width: 48%;
@@ -175,10 +206,11 @@
       margin: 0;
       padding: 0;
     }
-    ol.is-scroll {
-      height: 360px;
-      overflow: auto;
+    ol.is-scroll, ol.is-clip {
+      height: var(--card-height, 360px);
     }
+    ol.is-scroll { overflow: auto; }
+    ol.is-clip { overflow: hidden; }
     ol.is-collapsed li:nth-child(n + 9) { display: none; }
     ol.is-expanded {
       max-height: 680px;
@@ -193,11 +225,36 @@
       border-radius: 8px;
       color: inherit;
       text-decoration: none;
-      font-size: 14px;
+      font-size: var(--list-size, 14px);
       line-height: 1.45;
     }
     html[data-heat="off"] li a { grid-template-columns: 28px minmax(0, 1fr); }
     html[data-heat="off"] .heat { display: none; }
+    html[data-stealth="on"] .grid {
+      filter: grayscale(0.45) contrast(0.62);
+      opacity: 0.62;
+    }
+    .categories {
+      display: flex;
+      gap: 8px;
+      margin: 0 0 14px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .categories::-webkit-scrollbar { display: none; }
+    .categories[hidden] { display: none !important; }
+    .cat-chip {
+      flex: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .cat-chip.active, .cat-chip:hover { color: var(--text); border-color: var(--text); }
     li a:hover { background: var(--row); }
     li a:hover .title { color: var(--pink); }
     .rank { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 650; }
@@ -239,22 +296,32 @@
       z-index: 31;
       top: 0;
       right: 0;
-      width: min(380px, 100%);
+      width: min(440px, 100%);
       height: 100%;
       display: flex;
       flex-direction: column;
-      gap: 18px;
-      padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
-      background: var(--card);
+      gap: 12px;
+      padding: 0 16px calc(20px + env(safe-area-inset-bottom));
+      background: var(--bg);
       color: var(--text);
+      border-left: 1px solid var(--line);
       box-shadow: var(--shadow);
       overflow: auto;
+      overscroll-behavior: contain;
     }
     .drawer[hidden], .backdrop[hidden], .preview[hidden] { display: none !important; }
     .drawer-head, .preview-head {
       display: flex;
       align-items: center;
       gap: 10px;
+    }
+    .drawer-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      margin: 0 -16px;
+      padding: 16px 16px 10px;
+      background: var(--bg);
     }
     .drawer-head h2, .preview-head h2 {
       margin: 0;
@@ -282,25 +349,84 @@
       align-items: center;
       flex: none;
     }
-    .setting-label { margin-bottom: 8px; color: var(--muted); font-size: 13px; }
-    .setting-hint { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-    .segment, .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .checks label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 40px;
-      padding: 8px 10px;
+    .setting-group {
+      background: var(--card);
       border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 14px 6px;
+    }
+    .group-title {
+      margin: 2px 2px 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.14em;
+    }
+    .field {
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr);
+      gap: 4px 12px;
+      align-items: center;
+      padding: 9px 0;
+      border-top: 1px solid var(--line);
+    }
+    .field-label { color: var(--text); font-size: 13px; line-height: 1.35; }
+    .setting-hint { margin: 4px 2px 8px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .field-note { grid-column: 1 / -1; margin: 0 0 2px; }
+    .segment { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stepper {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr) 36px;
+      gap: 8px;
+      align-items: center;
+    }
+    .stepper button, .nudge {
+      min-height: 34px;
+      border: 0;
       border-radius: 10px;
+      background: var(--icon-bg);
+      color: var(--text);
+      font: inherit;
       cursor: pointer;
     }
-    .checks label:has(input:checked) {
-      border-color: transparent;
-      background: var(--row);
-      font-weight: 700;
+    .stepper span { text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
+    .stepper button:disabled, .nudge:disabled { opacity: 0.35; cursor: default; }
+    .nudge { width: 34px; }
+    #source-checks { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
+    .order-row {
+      display: grid;
+      grid-template-columns: 16px minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 44px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: transparent;
+      touch-action: pan-y;
+      user-select: none;
+      transition: transform 0.18s ease;
     }
-    .checks input { width: 16px; height: 16px; accent-color: var(--pink); }
+    .order-row:has(input:checked) { background: var(--row); border-color: transparent; }
+    .order-row.is-origin { opacity: 0.32; }
+    .order-row label { display: flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; }
+    .grip {
+      width: 14px;
+      height: 18px;
+      background: radial-gradient(circle, var(--muted) 1.15px, transparent 1.35px) 0 0 / 7px 6px;
+      opacity: 0.9;
+    }
+    .order-row:not(:has(input:checked)) .grip { opacity: 0.28; }
+    .order-row input { width: 16px; height: 16px; accent-color: var(--pink); }
+    .drag-ghost {
+      position: fixed;
+      z-index: 80;
+      margin: 0;
+      pointer-events: none;
+      background: var(--bg-2);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
+      transform: scale(1.03);
+    }
     .segment button {
       min-height: 40px;
       border: 1px solid var(--line);
@@ -336,11 +462,13 @@
       color: var(--muted);
       font-size: 12px;
     }
-    @media (max-width: 980px) {
-      .grid { grid-template-columns: 1fr 1fr; }
-    }
     @media (max-width: 720px) {
-      .wrap { padding: 12px 12px calc(92px + env(safe-area-inset-bottom)); }
+      .wrap {
+        width: auto;
+        max-width: none;
+        margin: 0;
+        padding: 12px 12px calc(92px + env(safe-area-inset-bottom));
+      }
       .topbar {
         flex-wrap: wrap;
         margin: -12px -12px 14px;
@@ -372,7 +500,9 @@
         border-top: 1px solid var(--line);
         backdrop-filter: blur(12px);
         overflow-x: auto;
+        scrollbar-width: none;
       }
+      .source-bar::-webkit-scrollbar { display: none; }
       .source-tab {
         flex: 0 0 52px;
         min-width: 52px;
@@ -415,7 +545,7 @@
         right: 0;
         width: 100%;
         height: auto;
-        max-height: min(70vh, 560px);
+        max-height: min(78vh, 640px);
         bottom: calc(76px + env(safe-area-inset-bottom));
         border-radius: 18px 18px 0 0;
       }
@@ -446,6 +576,7 @@
       </div>
     </header>
     <p class="note" id="note"></p>
+    <div class="categories" id="categories" hidden></div>
     <div class="grid" id="grid"></div>
     <footer>
       <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">陕ICP备2026001120号-1</a>
@@ -458,32 +589,117 @@
       <h2 id="drawer-title">设置</h2>
       <button type="button" class="text-btn" id="drawer-close">关闭</button>
     </div>
-    <section class="setting">
-      <div class="setting-label" id="label-link">打开方式</div>
-      <div class="segment" role="radiogroup" aria-labelledby="label-link">
-        <button type="button" role="radio" data-setting="linkMode" data-value="blank">新标签</button>
-        <button type="button" role="radio" data-setting="linkMode" data-value="iframe">页内预览</button>
+    <section class="setting-group">
+      <h3 class="group-title">外观</h3>
+      <div class="field">
+        <div class="field-label">主题</div>
+        <div class="stepper" id="theme-stepper">
+          <button type="button" data-theme-step="-1" aria-label="上一个主题">‹</button>
+          <span id="theme-name">暗夜</span>
+          <button type="button" data-theme-step="1" aria-label="下一个主题">›</button>
+        </div>
       </div>
-      <p class="setting-hint">页内预览遇到不允许嵌入的网站时会是空白，可以改用新标签打开。</p>
-    </section>
-    <section class="setting">
-      <div class="setting-label" id="label-heat">热度</div>
-      <div class="segment" role="radiogroup" aria-labelledby="label-heat">
-        <button type="button" role="radio" data-setting="showHeat" data-value="on">显示</button>
-        <button type="button" role="radio" data-setting="showHeat" data-value="off">隐藏</button>
+      <div class="field">
+        <div class="field-label" id="label-font">字体</div>
+        <div class="stepper" data-number="fontSize">
+          <button type="button" data-dir="-1" aria-label="减小字体">-</button>
+          <span>14</span>
+          <button type="button" data-dir="1" aria-label="增大字体">+</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label" id="label-stealth">偷摸模式</div>
+        <div class="segment" role="radiogroup" aria-labelledby="label-stealth">
+          <button type="button" role="radio" data-setting="stealth" data-value="off">关闭</button>
+          <button type="button" role="radio" data-setting="stealth" data-value="on">开启</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label" id="label-clip">超出隐藏</div>
+        <div class="segment" role="radiogroup" aria-labelledby="label-clip">
+          <button type="button" role="radio" data-setting="clipOverflow" data-value="off">关闭</button>
+          <button type="button" role="radio" data-setting="clipOverflow" data-value="on">开启</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label" id="label-logo">LOGO</div>
+        <div class="segment" role="radiogroup" aria-labelledby="label-logo">
+          <button type="button" role="radio" data-setting="showLogo" data-value="off">关闭</button>
+          <button type="button" role="radio" data-setting="showLogo" data-value="on">开启</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label" id="label-cats">首页分类</div>
+        <div class="segment" role="radiogroup" aria-labelledby="label-cats">
+          <button type="button" role="radio" data-setting="showCategories" data-value="off">关闭</button>
+          <button type="button" role="radio" data-setting="showCategories" data-value="on">开启</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label" id="label-today">今日热门</div>
+        <div class="segment" role="radiogroup" aria-labelledby="label-today">
+          <button type="button" role="radio" data-setting="showToday" data-value="on">显示</button>
+          <button type="button" role="radio" data-setting="showToday" data-value="off">隐藏</button>
+        </div>
       </div>
     </section>
-    <section class="setting">
-      <div class="setting-label" id="label-sources">显示的榜单</div>
-      <div class="checks" id="source-checks" role="group" aria-labelledby="label-sources"></div>
-      <p class="setting-hint">至少保留一个。电脑上按勾选显示卡片，手机底栏也只保留这些榜。</p>
-    </section>
-    <section class="setting">
-      <div class="setting-label" id="label-list">列表</div>
-      <div class="segment" role="radiogroup" aria-labelledby="label-list">
-        <button type="button" role="radio" data-setting="listMode" data-value="collapsed">收起 8 条</button>
-        <button type="button" role="radio" data-setting="listMode" data-value="expanded">展开</button>
+    <section class="setting-group">
+      <h3 class="group-title">布局</h3>
+      <p class="setting-hint">宽度是每列的最小宽度，最多五列。高度是电脑上列表区域的高度。留白是两侧至少空出的距离，宽屏排满五列后多出来的空白仍会平分。</p>
+      <div class="field">
+        <div class="field-label" id="label-width">卡片宽度</div>
+        <div class="stepper" data-number="cardWidth">
+          <button type="button" data-dir="-1" aria-label="减小卡片宽度">-</button>
+          <span>300</span>
+          <button type="button" data-dir="1" aria-label="增大卡片宽度">+</button>
+        </div>
       </div>
+      <div class="field">
+        <div class="field-label" id="label-height">卡片高度</div>
+        <div class="stepper" data-number="cardHeight">
+          <button type="button" data-dir="-1" aria-label="减小卡片高度">-</button>
+          <span>360</span>
+          <button type="button" data-dir="1" aria-label="增大卡片高度">+</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label" id="label-side">两侧留白</div>
+        <div class="stepper" data-number="sideSpace">
+          <button type="button" data-dir="-1" aria-label="减小两侧留白">-</button>
+          <span>0</span>
+          <button type="button" data-dir="1" aria-label="增大两侧留白">+</button>
+        </div>
+      </div>
+    </section>
+    <section class="setting-group">
+      <h3 class="group-title">阅读</h3>
+      <div class="field">
+        <div class="field-label" id="label-link">打开方式</div>
+        <div class="segment" role="radiogroup" aria-labelledby="label-link">
+          <button type="button" role="radio" data-setting="linkMode" data-value="blank">新标签</button>
+          <button type="button" role="radio" data-setting="linkMode" data-value="iframe">页内预览</button>
+        </div>
+        <p class="setting-hint field-note">页内预览遇到不允许嵌入的网站时会是空白，可以改用新标签打开。</p>
+      </div>
+      <div class="field">
+        <div class="field-label" id="label-heat">热度</div>
+        <div class="segment" role="radiogroup" aria-labelledby="label-heat">
+          <button type="button" role="radio" data-setting="showHeat" data-value="on">显示</button>
+          <button type="button" role="radio" data-setting="showHeat" data-value="off">隐藏</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label" id="label-list">列表</div>
+        <div class="segment" role="radiogroup" aria-labelledby="label-list">
+          <button type="button" role="radio" data-setting="listMode" data-value="collapsed">收起 8 条</button>
+          <button type="button" role="radio" data-setting="listMode" data-value="expanded">展开</button>
+        </div>
+      </div>
+    </section>
+    <section class="setting-group">
+      <h3 class="group-title" id="label-sources">榜单</h3>
+      <p class="setting-hint">勾选控制显示。长按一行会浮起快照，拖动时其他行让位。电脑卡片和手机底栏用同一套顺序。</p>
+      <div id="source-checks" role="group" aria-labelledby="label-sources"></div>
     </section>
   </aside>
   <div class="preview" id="preview" hidden>
@@ -497,6 +713,6 @@
     <iframe id="preview-frame" title="页内预览" referrerpolicy="no-referrer"></iframe>
     <p class="preview-hint">如果这里是空白，说明该网站不允许被嵌入。</p>
   </div>
-  <script src="app.js?v=20261105"></script>
+  <script src="app.js?v=20261105g"></script>
 </body>
 </html>

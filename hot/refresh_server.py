@@ -11,7 +11,6 @@ from pathlib import Path
 
 INTERVAL_SECONDS = 60
 SOURCE_INTERVAL_SECONDS = 15
-SOURCES = {"zhihu", "weibo", "bilibili", "ithome", "juejin", "baidu"}
 FETCH = os.environ.get("HOT_FETCH", "/opt/rsl/deploy/hot/fetch.py")
 HOST = "127.0.0.1"
 PORT = 8765
@@ -25,9 +24,6 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(404, {"status": "missing"})
             return
         source = (urllib.parse.parse_qs(parsed.query).get("source") or [""])[0]
-        if source and source not in SOURCES:
-            self.respond(400, {"status": "bad-source"})
-            return
         key = source or "*"
         now = time.time()
         interval = SOURCE_INTERVAL_SECONDS if source else INTERVAL_SECONDS

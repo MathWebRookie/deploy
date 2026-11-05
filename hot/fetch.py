@@ -44,18 +44,23 @@ def get_json(url, headers=None):
 
 
 def post_json(url, payload, headers=None):
+    return post_body(url, json.dumps(payload).encode("utf-8"), "application/json", headers)
+
+
+def post_form(url, form, headers=None):
+    body = urllib.parse.urlencode(form).encode("utf-8")
+    return post_body(url, body, "application/x-www-form-urlencoded", headers)
+
+
+def post_body(url, body, content_type, headers=None):
     request_headers = {
         "User-Agent": UA,
         "Accept": "application/json",
-        "Content-Type": "application/json",
+        "Content-Type": content_type,
     }
     if headers:
         request_headers.update(headers)
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=request_headers,
-    )
+    request = urllib.request.Request(url, data=body, headers=request_headers)
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
         return json.loads(read_body(response))
 
@@ -356,6 +361,85 @@ def fetch_douban():
     return items
 
 
+def fetch_toutiao():
+    payload = get_json(
+        "https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc",
+        {"Referer": "https://www.toutiao.com/"},
+    )
+    items = []
+    for row in payload.get("data") or []:
+        title = (row.get("Title") or "").strip()
+        url = (row.get("Url") or "").strip()
+        if title and url.startswith("http"):
+            items.append({"title": title, "url": url, "heat": format_heat(row.get("HotValue"))})
+        if len(items) >= LIMIT:
+            break
+    return items
+
+
+def fetch_douyin():
+    payload = get_json(
+        "https://www.douyin.com/aweme/v1/web/hot/search/list/?device_platform=webapp&aid=6383&channel=channel_pc_web",
+        {"Referer": "https://www.douyin.com/"},
+    )
+    rows = ((payload.get("data") or {}).get("word_list") or [])
+    items = []
+    for row in rows:
+        title = (row.get("word") or "").strip()
+        if not title:
+            continue
+        items.append(
+            {
+                "title": title,
+                "url": "https://www.douyin.com/search/" + urllib.parse.quote(title),
+                "heat": format_heat(row.get("hot_value")),
+            }
+        )
+        if len(items) >= LIMIT:
+            break
+    return items
+
+
+def fetch_huxiu():
+    payload = post_form(
+        "https://api-article.huxiu.com/web/article/articleList",
+        {"platform": "www", "page": "1", "pagesize": "30"},
+        {"Referer": "https://www.huxiu.com/"},
+    )
+    rows = ((payload.get("data") or {}).get("dataList") or [])
+    items = []
+    for row in rows:
+        title = (row.get("title") or "").strip()
+        url = (row.get("share_url") or "").strip()
+        aid = row.get("aid")
+        if not url.startswith("http") and aid:
+            url = f"https://www.huxiu.com/article/{aid}.html"
+        if title and url.startswith("http"):
+            heat = (row.get("count_info") or {}).get("viewnum")
+            items.append({"title": title, "url": url, "heat": format_heat(heat)})
+        if len(items) >= LIMIT:
+            break
+    return items
+
+
+def fetch_smzdm():
+    payload = get_json(
+        "https://www.smzdm.com/homepage/json_more?page=1",
+        {"Referer": "https://www.smzdm.com/", "X-Requested-With": "XMLHttpRequest"},
+    )
+    items = []
+    for row in payload.get("data") or []:
+        if not isinstance(row, dict):
+            continue
+        title = (row.get("article_title") or "").strip()
+        url = (row.get("article_url") or "").strip()
+        if title and url.startswith("http"):
+            items.append({"title": title, "url": url, "heat": format_heat(row.get("article_worthy"))})
+        if len(items) >= LIMIT:
+            break
+    return items
+
+
 SOURCES = (
     ("zhihu", "知乎热榜", fetch_zhihu),
     ("weibo", "微博热搜", fetch_weibo),
@@ -369,6 +453,10 @@ SOURCES = (
     ("thepaper", "澎湃热闻", fetch_thepaper),
     ("acfun", "AcFun日榜", fetch_acfun),
     ("douban", "豆瓣电影", fetch_douban),
+    ("toutiao", "今日头条", fetch_toutiao),
+    ("douyin", "抖音热搜", fetch_douyin),
+    ("huxiu", "虎嗅", fetch_huxiu),
+    ("smzdm", "值得买好价", fetch_smzdm),
 )
 
 
