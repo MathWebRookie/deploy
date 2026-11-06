@@ -6,6 +6,7 @@ import gzip
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -440,9 +441,162 @@ def fetch_smzdm():
     return items
 
 
+EM_HEADERS = {"Referer": "https://quote.eastmoney.com/"}
+A_INDEXES = (
+    ("1.000001", "上证指数"),
+    ("0.399001", "深证成指"),
+    ("0.399006", "创业板指"),
+    ("1.000688", "科创50"),
+    ("1.000300", "沪深300"),
+)
+HK_INDEXES = (
+    ("100.HSI", "恒生指数"),
+    ("100.HSCEI", "恒生国企指数"),
+    ("124.HSTECH", "恒生科技指数"),
+)
+
+
+def parse_change(value):
+    if value is None or value == "" or value == "-":
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number != number:
+        return None
+    return round(number, 2)
+
+
+def format_price(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number != number:
+        return None
+    return f"{number:.2f}"
+
+
+def fetch_indexes(specs):
+    names = {secid: name for secid, name in specs}
+    secids = ",".join(names)
+    url = (
+        "https://push2.eastmoney.com/api/qt/ulist.np/get"
+        "?fltt=2&invt=2&fields=f2,f3,f12,f13&secids="
+        + urllib.parse.quote(secids)
+    )
+    payload = get_json(url, EM_HEADERS)
+    rows = ((payload.get("data") or {}).get("diff")) or []
+    found = {}
+    for row in rows:
+        market = row.get("f13")
+        code = str(row.get("f12") or "").strip()
+        if market is None or not code:
+            continue
+        found[f"{market}.{code}"] = row
+    items = []
+    for secid, name in specs:
+        row = found.get(secid)
+        if not row:
+            continue
+        price = format_price(row.get("f2"))
+        change = parse_change(row.get("f3"))
+        if price is None or change is None:
+            continue
+        items.append(
+            {
+                "name": name,
+                "price": price,
+                "change": change,
+                "url": f"https://quote.eastmoney.com/unify/r/{secid}.html",
+            }
+        )
+    return items
+
+
+def fetch_boards(fs, market):
+    items = []
+    order = 1 if market.endswith("up") else 0
+    url = (
+        "https://push2.eastmoney.com/api/qt/clist/get"
+        f"?pn=1&pz=8&po={order}&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281"
+        "&fltt=2&invt=2&fid=f3&fs="
+        + urllib.parse.quote(fs)
+        + "&fields=f12,f14,f3"
+    )
+    payload = get_json(url, EM_HEADERS)
+    for row in ((payload.get("data") or {}).get("diff")) or []:
+        name = str(row.get("f14") or "").strip()
+        code = str(row.get("f12") or "").strip()
+        change = parse_change(row.get("f3"))
+        if not name or change is None:
+            continue
+        if market.startswith("a") and not code.startswith("BK"):
+            continue
+        if market.startswith("hk") and not code.startswith("HK"):
+            continue
+        if market.startswith("a"):
+            link = f"https://quote.eastmoney.com/bk/90.{code}.html"
+        else:
+            link = f"https://quote.eastmoney.com/unify/r/201.{code}.html"
+        items.append({"name": name, "change": change, "url": link})
+        if len(items) >= 5:
+            break
+    return items
+
+
+def fetch_group(loader):
+    for attempt in range(3):
+        try:
+            return loader()
+        except (OSError, urllib.error.URLError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            if attempt == 2:
+                return []
+            time.sleep(0.4)
+
+
+_STOCK_BUNDLE = None
+
+
+def market_quote(indexes, fs, prefix):
+    return {
+        "indexes": fetch_group(lambda: fetch_indexes(indexes)),
+        "up": fetch_group(lambda: fetch_boards(fs, prefix + "up")),
+        "down": fetch_group(lambda: fetch_boards(fs, prefix + "down")),
+    }
+
+
+def stock_bundle():
+    global _STOCK_BUNDLE
+    if _STOCK_BUNDLE is None:
+        _STOCK_BUNDLE = {
+            "a": market_quote(A_INDEXES, "m:90+t:2", "a"),
+            "hk": market_quote(HK_INDEXES, "m:201+t:2", "hk"),
+        }
+    return _STOCK_BUNDLE
+
+
+def fetch_quote(market):
+    quote = stock_bundle()[market]
+    if not quote["up"] and not quote["down"]:
+        raise RuntimeError("empty")
+    return {"quote": quote}
+
+
+def fetch_stock_a():
+    return fetch_quote("a")
+
+
+def fetch_stock_hk():
+    return fetch_quote("hk")
+
+
 SOURCES = (
     ("zhihu", "知乎热榜", fetch_zhihu),
     ("weibo", "微博热搜", fetch_weibo),
+    ("stock-a", "A股", fetch_stock_a),
+    ("stock-hk", "港股", fetch_stock_hk),
     ("bilibili", "B站热门", fetch_bilibili),
     ("ithome", "IT之家", fetch_ithome),
     ("juejin", "掘金热榜", fetch_juejin),
@@ -474,9 +628,31 @@ def previous_source(previous, source_id):
     return None
 
 
+QUOTE_SOURCES = {"stock-a", "stock-hk"}
+
+
+def empty_quote():
+    return {"indexes": [], "up": [], "down": []}
+
+
 def collect_source(source_id, name, fetch, updated_at, previous):
     try:
-        items = fetch()
+        result = fetch()
+        if isinstance(result, dict) and "quote" in result:
+            quote = result.get("quote") or empty_quote()
+            if not (quote.get("up") or quote.get("down")):
+                raise RuntimeError("empty")
+            return {
+                "id": source_id,
+                "name": name,
+                "ok": True,
+                "kind": "quote",
+                "error": None,
+                "updatedAt": updated_at,
+                "quote": quote,
+                "items": [],
+            }
+        items = result
         if not items:
             raise RuntimeError("empty")
         return {
@@ -490,12 +666,14 @@ def collect_source(source_id, name, fetch, updated_at, previous):
     except (OSError, urllib.error.URLError, KeyError, TypeError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"FAIL {source_id} {exc}", flush=True)
         old = previous_source(previous, source_id)
-        if old and old.get("items"):
+        old_quote = old.get("quote") if isinstance(old, dict) else None
+        old_usable = bool(old and (old.get("items") or (isinstance(old_quote, dict) and any(old_quote.get(key) for key in ("indexes", "up", "down")))))
+        if old_usable:
             kept = dict(old)
             kept["ok"] = False
             kept["error"] = "更新失败，显示上次的结果"
             return kept
-        return {
+        failed = {
             "id": source_id,
             "name": name,
             "ok": False,
@@ -503,6 +681,10 @@ def collect_source(source_id, name, fetch, updated_at, previous):
             "updatedAt": None,
             "items": [],
         }
+        if source_id in QUOTE_SOURCES:
+            failed["kind"] = "quote"
+            failed["quote"] = empty_quote()
+        return failed
 
 
 def sources_to_fetch():
@@ -541,6 +723,7 @@ def main() -> int:
             source_id: collect_source(source_id, name, fetch, updated_at, previous)
             for source_id, name, fetch in chosen
         }
+        known = {source_id for source_id, _, _ in SOURCES}
         if chosen == SOURCES:
             sources = [refreshed[source_id] for source_id, _, _ in SOURCES]
         else:
@@ -548,7 +731,7 @@ def main() -> int:
             seen = set()
             for source in previous.get("sources") or []:
                 source_id = source.get("id")
-                if not source_id or source_id in seen:
+                if not source_id or source_id in seen or source_id not in known:
                     continue
                 sources.append(refreshed.get(source_id, source))
                 seen.add(source_id)

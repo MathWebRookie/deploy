@@ -236,11 +236,13 @@
       overflow: auto;
     }
     html[data-scrollbar="off"] ol.is-scroll,
-    html[data-scrollbar="off"] ol.is-expanded {
+    html[data-scrollbar="off"] ol.is-expanded,
+    html[data-scrollbar="off"] .quote {
       scrollbar-width: none;
     }
     html[data-scrollbar="off"] ol.is-scroll::-webkit-scrollbar,
-    html[data-scrollbar="off"] ol.is-expanded::-webkit-scrollbar {
+    html[data-scrollbar="off"] ol.is-expanded::-webkit-scrollbar,
+    html[data-scrollbar="off"] .quote::-webkit-scrollbar {
       display: none;
     }
     ol.is-collapsed li:nth-child(n + 9) { display: none; }
@@ -294,6 +296,73 @@
     .title { min-width: 0; }
     .heat { color: var(--muted); font-size: 12px; white-space: nowrap; padding-top: 2px; }
     .empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
+    .quote {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: var(--card-height, 360px);
+      overflow: auto;
+      padding: 2px 0 6px;
+    }
+    .quote h3 {
+      margin: 0 0 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .quote-index-grid { display: flex; flex-direction: column; }
+    .quote-index a,
+    .quote-board a {
+      color: inherit;
+      text-decoration: none;
+      border-radius: 8px;
+    }
+    .quote-index a {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 4px 2px;
+      font-size: 13px;
+    }
+    .quote-index a:hover,
+    .quote-board a:hover { background: var(--row); }
+    .quote-index .name { font-weight: 650; }
+    .quote-index .price,
+    .quote-index .pct,
+    .quote-board .pct { font-variant-numeric: tabular-nums; }
+    .quote-index .price { color: var(--muted); font-size: 12px; }
+    .quote-index .pct,
+    .quote-board .pct { font-weight: 700; }
+    .quote-board { min-width: 0; }
+    .quote-board a {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 4px 2px;
+      font-size: 13px;
+    }
+    .quote-bar {
+      width: 3px;
+      height: 14px;
+      margin-top: 3px;
+      border-radius: 2px;
+      flex: none;
+      background: var(--muted);
+    }
+    .quote-board .name { flex: 1; min-width: 0; }
+    .quote-board .pct { flex: none; }
+    .pct.up { color: #e54545; }
+    .pct.down { color: #1aae62; }
+    .pct.flat { color: var(--muted); }
+    .quote-bar.up { background: #e54545; }
+    .quote-bar.down { background: #1aae62; }
+    html[data-stealth="on"] .quote .pct.up,
+    html[data-stealth="on"] .quote .pct.down { color: var(--muted); }
+    html[data-stealth="on"] .quote-bar.up,
+    html[data-stealth="on"] .quote-bar.down { background: var(--muted); }
+    .quote-empty,
+    .quote-note { margin: 0; color: var(--muted); font-size: 12px; }
     .fold {
       width: 100%;
       margin: 4px 0 6px;
@@ -528,6 +597,7 @@
       .actions { flex: 1 1 100%; justify-content: space-between; }
       .updated { font-size: 12px; }
       .grid { grid-template-columns: 1fr; }
+      .quote { height: auto; overflow: visible; }
       ol.is-scroll { height: auto; overflow: visible; }
       ol.is-expanded { max-height: none; overflow: visible; }
       .card-refresh { opacity: 1; width: 36px; height: 36px; }
@@ -745,7 +815,7 @@
     </section>
     <section class="setting-group">
       <h3 class="group-title" id="label-sources">榜单</h3>
-      <p class="setting-hint">勾选控制显示。长按一行会浮起快照，拖动时其他行让位。电脑卡片和手机底栏用同一套顺序。</p>
+      <p class="setting-hint">勾选控制显示。拖动前面把手或者上下箭头调整卡片位置。电脑卡片和手机底栏用同一套顺序。</p>
       <div id="source-checks" role="group" aria-labelledby="label-sources"></div>
     </section>
   </aside>
@@ -760,6 +830,6 @@
     <iframe id="preview-frame" title="页内预览" referrerpolicy="no-referrer"></iframe>
     <p class="preview-hint">如果这里是空白，说明该网站不允许被嵌入。</p>
   </div>
-  <script src="app.js?v=20261105j"></script>
+  <script src="app.js?v=20261106a"></script>
 </body>
 </html>

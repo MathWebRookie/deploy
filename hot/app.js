@@ -17,6 +17,8 @@ const THEME_KEY = "hot-theme";
 const SETTINGS_KEY = "hot-settings";
 const CATALOG = [
   { id: "zhihu", name: "知乎", short: "知", color: "#1772f6" },
+  { id: "stock-a", name: "A股", short: "A", color: "#d4380d" },
+  { id: "stock-hk", name: "港股", short: "港", color: "#b45309" },
   { id: "weibo", name: "微博", short: "微", color: "#e6162d" },
   { id: "bilibili", name: "B站", short: "B", color: "#fb7299" },
   { id: "ithome", name: "IT之家", short: "IT", color: "#c0392b" },
@@ -33,6 +35,7 @@ const CATALOG = [
   { id: "huxiu", name: "虎嗅", short: "虎", color: "#ff6a00" },
   { id: "smzdm", name: "值得买", short: "值", color: "#e4393c" },
 ];
+const QUOTE_IDS = ["stock-a", "stock-hk"];
 const ORIGINAL_SOURCES = ["zhihu", "weibo", "bilibili", "ithome", "juejin", "baidu"];
 const mobileQuery = matchMedia("(max-width: 720px)");
 const expandedIds = new Set();
@@ -96,7 +99,11 @@ function normalizeSources(value, seen) {
   const seenIds = Array.isArray(seen) ? seen.filter((id) => allowed.has(id)) : ORIGINAL_SOURCES;
   const known = new Set(seenIds);
   const newcomers = all.filter((id) => !known.has(id) && !picked.includes(id));
-  const sources = [...picked, ...newcomers];
+  const front = QUOTE_IDS.filter((id) => newcomers.includes(id));
+  const rest = newcomers.filter((id) => !QUOTE_IDS.includes(id));
+  const sources = picked.slice();
+  sources.splice(Math.min(1, sources.length), 0, ...front);
+  sources.push(...rest);
   return { sources: sources.length ? sources : all, seen: all };
 }
 
@@ -190,6 +197,124 @@ function safeUrl(value) {
     return "";
   }
   return "";
+}
+
+function bindExternalLink(link, title, href) {
+  if (settings.linkMode === "blank") {
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+  }
+  link.addEventListener("click", (event) => {
+    if (settings.linkMode !== "iframe") return;
+    event.preventDefault();
+    openPreview(title || "", href);
+  });
+}
+
+function formatPercent(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+  const sign = number > 0 ? "+" : "";
+  return `${sign}${number.toFixed(2)}%`;
+}
+
+function changeClass(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number === 0) return "flat";
+  return number > 0 ? "up" : "down";
+}
+
+function quoteLink(title, href) {
+  const link = document.createElement("a");
+  const safe = safeUrl(href);
+  if (!safe) {
+    link.className = "is-plain";
+    return link;
+  }
+  link.href = safe;
+  bindExternalLink(link, title, safe);
+  return link;
+}
+
+function indexSection(title, rows) {
+  const section = document.createElement("section");
+  section.className = "quote-indexes";
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  section.append(heading);
+  if (!rows.length) {
+    const empty = document.createElement("p");
+    empty.className = "quote-empty";
+    empty.textContent = "暂无";
+    section.append(empty);
+    return section;
+  }
+  const grid = document.createElement("div");
+  grid.className = "quote-index-grid";
+  for (const row of rows) {
+    const cell = document.createElement("div");
+    cell.className = "quote-index";
+    const link = quoteLink(row.name, row.url);
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = row.name || "";
+    const price = document.createElement("span");
+    price.className = "price";
+    price.textContent = row.price || "";
+    const pct = document.createElement("span");
+    pct.className = `pct ${changeClass(row.change)}`;
+    pct.textContent = formatPercent(row.change);
+    link.append(name, price, pct);
+    cell.append(link);
+    grid.append(cell);
+  }
+  section.append(grid);
+  return section;
+}
+
+function boardSection(title, rows, tone) {
+  const section = document.createElement("section");
+  section.className = `quote-board ${tone}`;
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  section.append(heading);
+  if (!rows.length) {
+    const empty = document.createElement("p");
+    empty.className = "quote-empty";
+    empty.textContent = "暂无";
+    section.append(empty);
+    return section;
+  }
+  for (const row of rows) {
+    const link = quoteLink(row.name, row.url);
+    const bar = document.createElement("span");
+    bar.className = `quote-bar ${changeClass(row.change)}`;
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = row.name || "";
+    const pct = document.createElement("span");
+    pct.className = `pct ${changeClass(row.change)}`;
+    pct.textContent = formatPercent(row.change);
+    link.append(bar, name, pct);
+    section.append(link);
+  }
+  return section;
+}
+
+function renderQuote(quote) {
+  const root = document.createElement("div");
+  root.className = "quote";
+  const data = quote || {};
+  const note = document.createElement("p");
+  note.className = "quote-note";
+  note.textContent = "行情仅供参考，不构成投资建议";
+  root.append(
+    indexSection("指数", data.indexes || []),
+    boardSection("涨幅 TOP5", data.up || [], "up"),
+    boardSection("跌幅 TOP5", data.down || [], "down"),
+    note,
+  );
+  return root;
 }
 
 function isMobile() {
@@ -656,7 +781,7 @@ function render(data) {
     const title = document.createElement("h2");
     title.textContent = source.name || "热榜";
     titleWrap.append(title);
-    const ago = relativeTime(source.updatedAt);
+    const ago = source.kind === "quote" ? formatTime(source.updatedAt) : relativeTime(source.updatedAt);
     if (ago) {
       const time = document.createElement("span");
       time.className = "ago";
@@ -679,6 +804,12 @@ function render(data) {
       head.append(heading);
     }
     card.append(head);
+    if (source.kind === "quote") {
+      card.classList.add("quote-card");
+      card.append(renderQuote(source.quote));
+      grid.append(card);
+      continue;
+    }
     const items = source.items || [];
     if (!items.length) {
       const empty = document.createElement("div");
@@ -693,15 +824,7 @@ function render(data) {
         const row = document.createElement("li");
         const link = document.createElement("a");
         link.href = href;
-        if (settings.linkMode === "blank") {
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-        }
-        link.addEventListener("click", (event) => {
-          if (settings.linkMode !== "iframe") return;
-          event.preventDefault();
-          openPreview(item.title || "", href);
-        });
+        bindExternalLink(link, item.title || "", href);
         const rank = document.createElement("span");
         rank.className = "rank";
         rank.textContent = String(index + 1);
