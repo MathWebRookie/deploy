@@ -36,7 +36,8 @@
       try { settings = JSON.parse(localStorage.getItem("hot-settings") || "{}"); } catch (error) {}
       document.documentElement.dataset.heat = settings.showHeat === false ? "off" : "on";
       document.documentElement.dataset.stealth = settings.stealth === true ? "on" : "off";
-      document.documentElement.dataset.scrollbar = settings.showScrollbar === false ? "off" : "on";
+      var showScrollbar = Number(settings.revision) >= 3 && settings.showScrollbar === true;
+      document.documentElement.dataset.scrollbar = showScrollbar ? "on" : "off";
       var fontSize = Number(settings.fontSize);
       if (fontSize >= 12 && fontSize <= 20) {
         document.documentElement.style.setProperty("--list-size", fontSize + "px");
@@ -734,7 +735,7 @@
       <div class="field">
         <div class="field-label" id="label-scrollbar">滚动条</div>
         <div class="switch-line">
-          <span class="switch-caption">显示</span>
+          <span class="switch-caption">隐藏</span>
           <button type="button" class="switch" role="switch" data-setting="showScrollbar" data-off="off" data-on="on" data-off-label="隐藏" data-on-label="显示" aria-labelledby="label-scrollbar"><span></span></button>
         </div>
       </div>
@@ -796,7 +797,7 @@
           <span class="switch-caption">新标签</span>
           <button type="button" class="switch" role="switch" data-setting="linkMode" data-off="blank" data-on="iframe" data-off-label="新标签" data-on-label="页内预览" aria-labelledby="label-link"><span></span></button>
         </div>
-        <p class="setting-hint field-note">页内预览遇到不允许嵌入的网站时会是空白，可以改用新标签打开。</p>
+        <p class="setting-hint field-note">默认在新标签打开。页内预览遇到不允许嵌入的网站时会是空白。</p>
       </div>
       <div class="field">
         <div class="field-label" id="label-heat">热度</div>
@@ -830,6 +831,6 @@
     <iframe id="preview-frame" title="页内预览" referrerpolicy="no-referrer"></iframe>
     <p class="preview-hint">如果这里是空白，说明该网站不允许被嵌入。</p>
   </div>
-  <script src="app.js?v=20261106a"></script>
+  <script src="app.js?v=20261106c"></script>
 </body>
 </html>

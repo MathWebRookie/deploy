@@ -423,22 +423,48 @@ def fetch_huxiu():
     return items
 
 
-def fetch_smzdm():
-    payload = get_json(
-        "https://www.smzdm.com/homepage/json_more?page=1",
-        {"Referer": "https://www.smzdm.com/", "X-Requested-With": "XMLHttpRequest"},
-    )
+def smzdm_items(payload):
+    rows = payload if isinstance(payload, list) else (payload.get("data") or [])
     items = []
-    for row in payload.get("data") or []:
+    for row in rows:
         if not isinstance(row, dict):
             continue
         title = (row.get("article_title") or "").strip()
         url = (row.get("article_url") or "").strip()
-        if title and url.startswith("http"):
-            items.append({"title": title, "url": url, "heat": format_heat(row.get("article_worthy"))})
+        if not title or not url.startswith("http"):
+            continue
+        heat = row.get("article_worthy")
+        if heat in (None, ""):
+            heat = row.get("article_comment")
+        items.append({"title": title, "url": url, "heat": format_heat(heat)})
         if len(items) >= LIMIT:
             break
     return items
+
+
+def fetch_smzdm():
+    sources = (
+        (
+            "https://www.smzdm.com/homepage/json_more?page=1",
+            {"Referer": "https://www.smzdm.com/", "X-Requested-With": "XMLHttpRequest"},
+        ),
+        (
+            "https://faxian.smzdm.com/json_more?filter=h3s0t0f0c0&page=1",
+            {"Referer": "https://faxian.smzdm.com/", "X-Requested-With": "XMLHttpRequest"},
+        ),
+    )
+    last_error = None
+    for url, headers in sources:
+        try:
+            items = smzdm_items(get_json(url, headers))
+        except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError) as exc:
+            last_error = exc
+            continue
+        if items:
+            return items
+    if last_error:
+        raise last_error
+    return []
 
 
 EM_HEADERS = {"Referer": "https://quote.eastmoney.com/"}

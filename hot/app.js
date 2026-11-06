@@ -55,11 +55,11 @@ function loadSettings() {
     cardHeight: 360,
     sideSpace: 0,
     stealth: false,
-    showScrollbar: true,
+    showScrollbar: false,
     showLogo: true,
     showCategories: true,
     showToday: false,
-    revision: 2,
+    revision: 4,
   };
   try {
     const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
@@ -69,7 +69,7 @@ function loadSettings() {
       ? raw.mobileSource
       : normalized.sources[0];
     return {
-      linkMode: raw.linkMode === "iframe" ? "iframe" : defaults.linkMode,
+      linkMode: Number(raw.revision) >= 4 && raw.linkMode === "iframe" ? "iframe" : "blank",
       showHeat: raw.showHeat === false ? false : defaults.showHeat,
       listMode: raw.listMode === "expanded" ? "expanded" : defaults.listMode,
       sources: normalized.sources,
@@ -80,11 +80,11 @@ function loadSettings() {
       cardHeight: readNumber(raw.cardHeight, 240, 680, defaults.cardHeight),
       sideSpace: readNumber(raw.sideSpace, 0, 240, defaults.sideSpace),
       stealth: raw.stealth === true,
-      showScrollbar: raw.showScrollbar !== false,
+      showScrollbar: Number(raw.revision) >= 3 ? raw.showScrollbar === true : false,
       showLogo: preferShown ? true : raw.showLogo === true,
       showCategories: preferShown ? true : raw.showCategories === true,
       showToday: raw.showToday === true,
-      revision: 2,
+      revision: 4,
     };
   } catch (error) {
     return defaults;
