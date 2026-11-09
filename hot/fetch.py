@@ -37,7 +37,11 @@ def get_text(url, headers=None):
         request_headers.update(headers)
     request = urllib.request.Request(url, headers=request_headers)
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-        return read_body(response)
+        raw = response.read()
+        if raw[:2] == b"\x1f\x8b":
+            raw = gzip.decompress(raw)
+        encoding = response.headers.get_content_charset() or "utf-8"
+        return raw.decode(encoding)
 
 
 def get_json(url, headers=None):
@@ -423,62 +427,46 @@ def fetch_huxiu():
     return items
 
 
-def smzdm_items(payload):
-    rows = payload if isinstance(payload, list) else (payload.get("data") or [])
+def fetch_smzdm():
+    payload = get_json(
+        "https://api.smzdm.com/v1/home/articles?limit=30&f=android&v=10.6.0",
+        {"User-Agent": "smzdm_android_V10.6.0", "Accept": "application/json"},
+    )
+    if str(payload.get("error_code")) != "0":
+        raise RuntimeError(payload.get("error_msg") or "smzdm")
+    rows = ((payload.get("data") or {}).get("rows")) or []
     items = []
     for row in rows:
         if not isinstance(row, dict):
             continue
-        title = (row.get("article_title") or "").strip()
-        url = (row.get("article_url") or "").strip()
+        title = str(row.get("article_title") or "").strip()
+        url = str(row.get("article_url") or "").strip()
         if not title or not url.startswith("http"):
             continue
         heat = row.get("article_worthy")
-        if heat in (None, ""):
+        if heat in (None, "", 0, "0"):
             heat = row.get("article_comment")
+        if heat in (None, "", 0, "0"):
+            heat = row.get("article_price") or row.get("article_subtitle") or ""
         items.append({"title": title, "url": url, "heat": format_heat(heat)})
         if len(items) >= LIMIT:
             break
     return items
 
 
-def fetch_smzdm():
-    sources = (
-        (
-            "https://www.smzdm.com/homepage/json_more?page=1",
-            {"Referer": "https://www.smzdm.com/", "X-Requested-With": "XMLHttpRequest"},
-        ),
-        (
-            "https://faxian.smzdm.com/json_more?filter=h3s0t0f0c0&page=1",
-            {"Referer": "https://faxian.smzdm.com/", "X-Requested-With": "XMLHttpRequest"},
-        ),
-    )
-    last_error = None
-    for url, headers in sources:
-        try:
-            items = smzdm_items(get_json(url, headers))
-        except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError) as exc:
-            last_error = exc
-            continue
-        if items:
-            return items
-    if last_error:
-        raise last_error
-    return []
-
-
-EM_HEADERS = {"Referer": "https://quote.eastmoney.com/"}
+QQ_HEADERS = {"Referer": "https://gu.qq.com/"}
+SINA_HEADERS = {"Referer": "https://finance.sina.com.cn/"}
 A_INDEXES = (
-    ("1.000001", "上证指数"),
-    ("0.399001", "深证成指"),
-    ("0.399006", "创业板指"),
-    ("1.000688", "科创50"),
-    ("1.000300", "沪深300"),
+    ("sh000001", "上证指数"),
+    ("sz399001", "深证成指"),
+    ("sz399006", "创业板指"),
+    ("sh000688", "科创50"),
+    ("sh000300", "沪深300"),
 )
 HK_INDEXES = (
-    ("100.HSI", "恒生指数"),
-    ("100.HSCEI", "恒生国企指数"),
-    ("124.HSTECH", "恒生科技指数"),
+    ("r_hkHSI", "恒生指数"),
+    ("r_hkHSCEI", "恒生国企指数"),
+    ("r_hkHSTECH", "恒生科技指数"),
 )
 
 
@@ -504,69 +492,93 @@ def format_price(value):
     return f"{number:.2f}"
 
 
-def fetch_indexes(specs):
-    names = {secid: name for secid, name in specs}
-    secids = ",".join(names)
-    url = (
-        "https://push2.eastmoney.com/api/qt/ulist.np/get"
-        "?fltt=2&invt=2&fields=f2,f3,f12,f13&secids="
-        + urllib.parse.quote(secids)
-    )
-    payload = get_json(url, EM_HEADERS)
-    rows = ((payload.get("data") or {}).get("diff")) or []
+def quote_fields(line):
+    start = line.find('"')
+    end = line.rfind('"')
+    if start < 0 or end <= start:
+        return []
+    return line[start + 1:end].split("~")
+
+
+def qq_index_quotes(specs):
+    text = get_text("https://qt.gtimg.cn/q=" + ",".join(code for code, _name in specs), QQ_HEADERS)
     found = {}
-    for row in rows:
-        market = row.get("f13")
-        code = str(row.get("f12") or "").strip()
-        if market is None or not code:
+    for line in text.split(";"):
+        line = line.strip()
+        if not line.startswith("v_") or "=" not in line:
             continue
-        found[f"{market}.{code}"] = row
-    items = []
-    for secid, name in specs:
-        row = found.get(secid)
-        if not row:
+        key = line[2:line.find("=")]
+        parts = quote_fields(line)
+        if len(parts) < 33:
             continue
-        price = format_price(row.get("f2"))
-        change = parse_change(row.get("f3"))
+        price = format_price(parts[3])
+        change = parse_change(parts[32])
         if price is None or change is None:
             continue
+        found[key] = (price, change)
+    items = []
+    for code, name in specs:
+        row = found.get(code)
+        if not row:
+            continue
+        link_code = code[2:] if code.startswith("r_") else code
         items.append(
             {
                 "name": name,
-                "price": price,
-                "change": change,
-                "url": f"https://quote.eastmoney.com/unify/r/{secid}.html",
+                "price": row[0],
+                "change": row[1],
+                "url": f"https://gu.qq.com/{link_code}",
             }
         )
     return items
 
 
-def fetch_boards(fs, market):
-    items = []
-    order = 1 if market.endswith("up") else 0
-    url = (
-        "https://push2.eastmoney.com/api/qt/clist/get"
-        f"?pn=1&pz=8&po={order}&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281"
-        "&fltt=2&invt=2&fid=f3&fs="
-        + urllib.parse.quote(fs)
-        + "&fields=f12,f14,f3"
+def qq_industry_boards(direction):
+    payload = get_json(
+        "https://proxy.finance.qq.com/cgi/cgi-bin/rank/pt/getRank"
+        "?_appver=11.17.0&board_type=hy&sort_type=priceRatio"
+        f"&direct={direction}&offset=0&count=5",
+        QQ_HEADERS,
     )
-    payload = get_json(url, EM_HEADERS)
-    for row in ((payload.get("data") or {}).get("diff")) or []:
-        name = str(row.get("f14") or "").strip()
-        code = str(row.get("f12") or "").strip()
-        change = parse_change(row.get("f3"))
-        if not name or change is None:
+    if payload.get("code") not in (0, "0"):
+        raise RuntimeError(payload.get("msg") or "qq board")
+    items = []
+    for row in ((payload.get("data") or {}).get("rank_list")) or []:
+        name = str(row.get("name") or "").strip()
+        code = str(row.get("code") or "").strip()
+        change = parse_change(row.get("zdf"))
+        if not name or not code or change is None:
             continue
-        if market.startswith("a") and not code.startswith("BK"):
+        items.append({"name": name, "change": change, "url": f"https://gu.qq.com/{code}"})
+        if len(items) >= 5:
+            break
+    return items
+
+
+def hk_stock_movers(descending):
+    payload = get_json(
+        "https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/"
+        "Market_Center.getHKStockData?page=1&num=8&sort=changepercent&asc="
+        + ("0" if descending else "1")
+        + "&node=qbgg_hk",
+        SINA_HEADERS,
+    )
+    if not isinstance(payload, list):
+        raise RuntimeError("hk movers")
+    items = []
+    for row in payload:
+        name = str(row.get("name") or "").strip()
+        symbol = str(row.get("symbol") or "").strip()
+        change = parse_change(row.get("changepercent"))
+        if not name or not symbol or change is None:
             continue
-        if market.startswith("hk") and not code.startswith("HK"):
-            continue
-        if market.startswith("a"):
-            link = f"https://quote.eastmoney.com/bk/90.{code}.html"
-        else:
-            link = f"https://quote.eastmoney.com/unify/r/201.{code}.html"
-        items.append({"name": name, "change": change, "url": link})
+        items.append(
+            {
+                "name": name,
+                "change": change,
+                "url": f"https://gu.qq.com/hk{symbol.zfill(5)}",
+            }
+        )
         if len(items) >= 5:
             break
     return items
@@ -582,40 +594,27 @@ def fetch_group(loader):
             time.sleep(0.4)
 
 
-_STOCK_BUNDLE = None
-
-
-def market_quote(indexes, fs, prefix):
-    return {
-        "indexes": fetch_group(lambda: fetch_indexes(indexes)),
-        "up": fetch_group(lambda: fetch_boards(fs, prefix + "up")),
-        "down": fetch_group(lambda: fetch_boards(fs, prefix + "down")),
-    }
-
-
-def stock_bundle():
-    global _STOCK_BUNDLE
-    if _STOCK_BUNDLE is None:
-        _STOCK_BUNDLE = {
-            "a": market_quote(A_INDEXES, "m:90+t:2", "a"),
-            "hk": market_quote(HK_INDEXES, "m:201+t:2", "hk"),
-        }
-    return _STOCK_BUNDLE
-
-
-def fetch_quote(market):
-    quote = stock_bundle()[market]
-    if not quote["up"] and not quote["down"]:
+def quote_or_empty(indexes, up, down):
+    quote = {"indexes": indexes, "up": up, "down": down}
+    if not up and not down:
         raise RuntimeError("empty")
     return {"quote": quote}
 
 
 def fetch_stock_a():
-    return fetch_quote("a")
+    return quote_or_empty(
+        fetch_group(lambda: qq_index_quotes(A_INDEXES)),
+        fetch_group(lambda: qq_industry_boards("down")),
+        fetch_group(lambda: qq_industry_boards("up")),
+    )
 
 
 def fetch_stock_hk():
-    return fetch_quote("hk")
+    return quote_or_empty(
+        fetch_group(lambda: qq_index_quotes(HK_INDEXES)),
+        fetch_group(lambda: hk_stock_movers(True)),
+        fetch_group(lambda: hk_stock_movers(False)),
+    )
 
 
 SOURCES = (
